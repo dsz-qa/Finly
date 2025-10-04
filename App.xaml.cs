@@ -1,11 +1,7 @@
-﻿using System.Globalization;
-using System.Threading;
-using System.Windows;
-using System.Windows.Markup;
-using Aplikacja_do_sledzenia_wydatkow.Views;
-using Aplikacja_do_sledzenia_wydatkow.ViewModels;
+﻿using System.Windows;
+using Finly.Views;
 
-namespace Aplikacja_do_sledzenia_wydatkow
+namespace Finly
 {
     public partial class App : Application
     {
@@ -13,10 +9,9 @@ namespace Aplikacja_do_sledzenia_wydatkow
         {
             base.OnStartup(e);
 
-            var auth = new Views.AuthWindow();
+            var auth = new AuthWindow();
             MainWindow = auth;
             auth.Show();
         }
-
     }
 }

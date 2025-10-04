@@ -1,11 +1,9 @@
 using System;
 using System.Windows;
-using Aplikacja_do_sledzenia_wydatkow.Models;
-using Aplikacja_do_sledzenia_wydatkow.Models;
-using Aplikacja_do_sledzenia_wydatkow.Services;
-using Aplikacja_do_sledzenia_wydatkow.Services;
+using Finly.Models;
+using Finly.Services;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Views
+namespace Finly.Views
 {
     public partial class EditExpenseView : Window
     {
@@ -16,43 +14,45 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
         {
             InitializeComponent();
             _userId = userId;
-            _existingExpense = expense;
+            _existingExpense = expense ?? throw new ArgumentNullException(nameof(expense));
 
             // Wype³nij pola formularza
-            AmountBox.Text = expense.Amount.ToString();
-            CategoryBox.Text = DatabaseService.GetCategoryNameById(expense.CategoryId); // zak³adamy, ¿e taka metoda istnieje
+            AmountBox.Text = expense.Amount.ToString("0.##");
+            CategoryBox.Text = DatabaseService.GetCategoryNameById(expense.CategoryId) ?? string.Empty;
             DateBox.SelectedDate = expense.Date;
-            DescriptionBox.Text = expense.Description;
+            DescriptionBox.Text = expense.Description ?? string.Empty;
         }
 
         private void SaveChanges_Click(object sender, RoutedEventArgs e)
         {
-            if (double.TryParse(AmountBox.Text, out double amount) &&
-                !string.IsNullOrWhiteSpace(CategoryBox.Text) &&
-                DateBox.SelectedDate.HasValue)
+            if (!double.TryParse(AmountBox.Text, out double amount))
             {
-                string categoryName = CategoryBox.Text.Trim();
-                int categoryId = DatabaseService.GetOrCreateCategoryId(categoryName, _userId);
-
-                _existingExpense.Amount = amount;
-                _existingExpense.CategoryId = categoryId;
-                _existingExpense.Date = DateBox.SelectedDate.Value;
-                _existingExpense.Description = DescriptionBox.Text;
-
-                DatabaseService.UpdateExpense(_existingExpense);
-                MessageBox.Show("Zapisano zmiany.");
-                this.DialogResult = true;
-                this.Close();
+                MessageBox.Show("WprowadŸ poprawn¹ kwotê.");
+                return;
             }
-            else
+            if (string.IsNullOrWhiteSpace(CategoryBox.Text))
             {
-                MessageBox.Show("Uzupe³nij wszystkie pola.");
+                MessageBox.Show("Podaj kategoriê.");
+                return;
             }
-        }
+            if (!DateBox.SelectedDate.HasValue)
+            {
+                MessageBox.Show("Wybierz datê.");
+                return;
+            }
 
-        private void Cancel_Click(object sender, RoutedEventArgs e)
-        {
-            this.Close();
+            string categoryName = CategoryBox.Text.Trim();
+            int categoryId = DatabaseService.GetOrCreateCategoryId(categoryName, _userId);
+
+            _existingExpense.Amount = amount;
+            _existingExpense.CategoryId = categoryId;
+            _existingExpense.Date = DateBox.SelectedDate.Value;
+            _existingExpense.Description = DescriptionBox.Text ?? string.Empty;
+
+            DatabaseService.UpdateExpense(_existingExpense);
+            MessageBox.Show("Zapisano zmiany.");
+            DialogResult = true;
+            Close();
         }
     }
 }

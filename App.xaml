@@ -1,4 +1,4 @@
-﻿<Application x:Class="Aplikacja_do_sledzenia_wydatkow.App"
+﻿<Application x:Class="Finly.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnLastWindowClose">

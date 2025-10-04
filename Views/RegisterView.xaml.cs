@@ -1,7 +1,8 @@
-using Aplikacja_do_sledzenia_wydatkow.ViewModels;
 using System.Windows;
+using System.Windows.Controls;
+using Finly.ViewModels;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Views
+namespace Finly.Views
 {
     public partial class RegisterView : Window
     {
@@ -10,15 +11,21 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
         public RegisterView()
         {
             InitializeComponent();
-            _viewModel = new RegisterViewModel();
-            this.DataContext = _viewModel;
 
-            // najwa¿niejsze: przypisanie has³a PRZED wykonaniem komendy
-            RegisterButton.Click += (s, e) =>
+            _viewModel = new RegisterViewModel();
+            DataContext = _viewModel;
+
+            // Has³o z PasswordBox nie wspiera bindowania — aktualizujemy je na bie¿¹co:
+            PasswordBox.PasswordChanged += PasswordBox_PasswordChanged;
+        }
+
+        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (sender is PasswordBox pb)
             {
-                _viewModel.Password = PasswordBox.Password;
-                System.Diagnostics.Debug.WriteLine($"[REGISTER] Wpisane has³o: {_viewModel.Password}");
-            };
+                _viewModel.Password = pb.Password ?? string.Empty;
+                // System.Diagnostics.Debug.WriteLine($"[REGISTER] Has³o: {_viewModel.Password}");
+            }
         }
     }
 }

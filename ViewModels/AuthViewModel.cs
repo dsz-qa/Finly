@@ -1,12 +1,11 @@
-﻿using Aplikacja_do_sledzenia_wydatkow.Services;        // <-- dostosuj jeśli masz inną przestrzeń nazw
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using System.Windows.Media;                             // Brush, Brushes
-using Aplikacja_do_sledzenia_wydatkow.Services;
+using System.Windows.Media;
+using Finly.Services;
 
-namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
+namespace Finly.ViewModels
 {
     public class AuthViewModel : INotifyPropertyChanged
     {
@@ -23,10 +22,10 @@ namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
         private string _loginMessage = string.Empty;
         private bool _loginIsError;
 
-        // Regex e-maila
+        // Regex e-maila (culture-invariant)
         private static readonly Regex EmailRegex =
-            new(@"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$",
-                RegexOptions.Compiled);
+            new(@"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$",
+                RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         // ===== Właściwości publiczne =====
         public string Username
@@ -57,7 +56,7 @@ namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
         public string RegisterMessage
         {
             get => _registerMessage;
-            set { _registerMessage = value; OnPropertyChanged(); }
+            set { _registerMessage = value ?? string.Empty; OnPropertyChanged(); }
         }
         public bool RegisterIsError
         {
@@ -66,23 +65,23 @@ namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
         }
         public Brush RegisterMessageBrush => RegisterIsError ? Brushes.IndianRed : Brushes.SeaGreen;
 
-        // Logowanie – baner u góry (np. po wylogowaniu / usunięciu konta)
+        // Logowanie – baner u góry
         public string LoginBanner
         {
             get => _loginBanner;
-            set { _loginBanner = value; OnPropertyChanged(); }
+            set { _loginBanner = value ?? string.Empty; OnPropertyChanged(); }
         }
         public Brush LoginBannerBrush
         {
             get => _loginBannerBrush;
-            set { _loginBannerBrush = value; OnPropertyChanged(); }
+            set { _loginBannerBrush = value ?? Brushes.Transparent; OnPropertyChanged(); }
         }
 
-        // Logowanie – cichy komunikat pod hasłem
+        // Logowanie – komunikat pod hasłem
         public string LoginMessage
         {
             get => _loginMessage;
-            set { _loginMessage = value; OnPropertyChanged(); }
+            set { _loginMessage = value ?? string.Empty; OnPropertyChanged(); }
         }
         public bool LoginIsError
         {
@@ -152,7 +151,6 @@ namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
         // ===== Logika: logowanie / rejestracja =====
         public bool Login(string password)
         {
-            // czyść komunikat logowania
             LoginMessage = string.Empty;
             LoginIsError = false;
 
@@ -195,7 +193,6 @@ namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
             if (!IsPasswordValid)
                 return Error("Hasło nie spełnia wymagań – popraw czerwone pozycje poniżej.");
 
-            // kanonizacja loginu
             Username = Username.ToLowerInvariant();
 
             if (!UserService.IsUsernameAvailable(Username))
@@ -205,7 +202,6 @@ namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
             if (!ok)
                 return Error("Nie udało się utworzyć konta. Spróbuj ponownie.");
 
-            // zielony baner na logowaniu
             IsLoginMode = true;
             LoginBanner = "Konto utworzone. Zaloguj się.";
             LoginBannerBrush = Brushes.SeaGreen;
@@ -228,24 +224,24 @@ namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
 
         public void UpdatePasswordHints(string pwd, string confirm)
         {
-            PwdHasMinLen = (pwd ?? string.Empty).Length >= 8;
-            PwdHasLower = !string.IsNullOrEmpty(pwd) && Regex.IsMatch(pwd, "[a-z]");
-            PwdHasUpper = !string.IsNullOrEmpty(pwd) && Regex.IsMatch(pwd, "[A-Z]");
-            PwdHasDigit = !string.IsNullOrEmpty(pwd) && Regex.IsMatch(pwd, "[0-9]");
-            PwdHasSpecial = !string.IsNullOrEmpty(pwd) && Regex.IsMatch(pwd, "[^\\w\\s]");
-            PwdNoSpaces = string.IsNullOrEmpty(pwd) || !Regex.IsMatch(pwd ?? string.Empty, "\\s");
-            PwdMatchesConfirm = string.Equals(pwd ?? string.Empty, confirm ?? string.Empty, StringComparison.Ordinal);
+            pwd ??= string.Empty; confirm ??= string.Empty;
+            PwdHasMinLen = pwd.Length >= 8;
+            PwdHasLower = Regex.IsMatch(pwd, "[a-z]");
+            PwdHasUpper = Regex.IsMatch(pwd, "[A-Z]");
+            PwdHasDigit = Regex.IsMatch(pwd, "[0-9]");
+            PwdHasSpecial = Regex.IsMatch(pwd, "[^\\w\\s]");
+            PwdNoSpaces = !Regex.IsMatch(pwd, "\\s");
+            PwdMatchesConfirm = string.Equals(pwd, confirm, StringComparison.Ordinal);
         }
 
-        // ===== Helpery dla komunikatów =====
+        // ===== Helpery =====
         private bool Error(string msg)
         {
             RegisterIsError = true;
-            RegisterMessage = msg;
+            RegisterMessage = msg ?? string.Empty;
             return false;
         }
 
-        // INotifyPropertyChanged
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

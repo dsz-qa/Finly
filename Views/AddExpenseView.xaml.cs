@@ -1,9 +1,9 @@
 using System;
 using System.Windows;
-using Aplikacja_do_sledzenia_wydatkow.Models;
-using Aplikacja_do_sledzenia_wydatkow.Services;
+using Finly.Models;
+using Finly.Services;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Views
+namespace Finly.Views
 {
     public partial class AddExpenseView : Window
     {
@@ -19,9 +19,9 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
         {
             // Walidacja pól
             if (string.IsNullOrWhiteSpace(AmountBox.Text) ||
-                string.IsNullOrWhiteSpace(categoryComboBox.Text) ||
-                !datePicker.SelectedDate.HasValue ||
-                string.IsNullOrWhiteSpace(descriptionBox.Text))
+                string.IsNullOrWhiteSpace(CategoryBox.Text) ||
+                !DateBox.SelectedDate.HasValue ||
+                string.IsNullOrWhiteSpace(DescriptionBox.Text))
             {
                 MessageBox.Show("Uzupe³nij wszystkie pola.");
                 return;
@@ -33,15 +33,15 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
                 return;
             }
 
-            string categoryName = categoryComboBox.Text.Trim();
+            string categoryName = CategoryBox.Text.Trim();
             int categoryId = DatabaseService.GetOrCreateCategoryId(categoryName, _userId);
 
             var expense = new Expense
             {
                 Amount = amount,
                 CategoryId = categoryId,
-                Date = datePicker.SelectedDate.Value,
-                Description = descriptionBox.Text,
+                Date = DateBox.SelectedDate.Value,
+                Description = DescriptionBox.Text,
                 UserId = _userId
             };
 

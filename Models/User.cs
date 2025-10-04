@@ -1,9 +1,11 @@
-namespace Aplikacja_do_sledzenia_wydatkow.Models
+namespace Finly.Models
 {
     public class User
     {
         public int Id { get; set; }
-        public string Username { get; set; }
-        public string PasswordHash { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
+
+        public override string ToString() => Username;
     }
 }

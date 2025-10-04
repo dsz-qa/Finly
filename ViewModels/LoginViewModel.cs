@@ -1,52 +1,107 @@
-using Aplikacja_do_œledzenia_wydatków.Services;
-using Aplikacja_do_sledzenia_wydatkow.Views;
-using System.Windows.Input;
+using System;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
-using Aplikacja_do_sledzenia_wydatkow.Helpers;
+using System.Windows.Input;
+using Finly.Helpers;   // RelayCommand
+using Finly.Services;  // UserService
+using Finly.Views;     // DashboardView, LoginView
 
-namespace Aplikacja_do_sledzenia_wydatkow.ViewModels
+namespace Finly.ViewModels
 {
-    public class LoginViewModel
+    public class LoginViewModel : INotifyPropertyChanged
     {
-        public string Username { get; set; }
-        public string Password { get; set; }
+        private string _username = string.Empty;
+        private string _password = string.Empty;
 
-        public ICommand LoginCommand { get; set; }
+        public string Username
+        {
+            get => _username;
+            set
+            {
+                if (_username == (value ?? string.Empty)) return;
+                _username = value ?? string.Empty;
+                OnPropertyChanged();
+                RaiseCanExecuteChanged();
+            }
+        }
+
+        public string Password
+        {
+            get => _password;
+            set
+            {
+                if (_password == (value ?? string.Empty)) return;
+                _password = value ?? string.Empty;
+                OnPropertyChanged();
+                RaiseCanExecuteChanged();
+            }
+        }
+
+        public ICommand LoginCommand { get; }
 
         public LoginViewModel()
         {
-            LoginCommand = new RelayCommand(Login);
+            // CanExecute blokuje przycisk gdy pola s¹ puste
+            LoginCommand = new RelayCommand(Login, CanLogin);
         }
+
+        private bool CanLogin()
+            => !string.IsNullOrWhiteSpace(Username)
+            && !string.IsNullOrWhiteSpace(Password);
 
         private void Login()
         {
-            System.Diagnostics.Debug.WriteLine($"[LOGIN VIEWMODEL] Username: {Username}");
-            System.Diagnostics.Debug.WriteLine($"[LOGIN VIEWMODEL] Password: {Password}");
-            System.Diagnostics.Debug.WriteLine($"[LOGIN VIEWMODEL] Przekazywane has³o: {Password}");
-
-            if (UserService.Login(Username, Password))
+            try
             {
-                // Pobierz userId z bazy danych
-                int userId = UserService.GetUserIdByUsername(Username);
+                var user = (Username ?? string.Empty).Trim().ToLowerInvariant();
+                var pass = Password ?? string.Empty;
 
-                // Otwórz Dashboard
+                if (!CanLogin())
+                {
+                    MessageBox.Show("Podaj login i has³o.", "Logowanie", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!UserService.Login(user, pass))
+                {
+                    MessageBox.Show("B³êdny login lub has³o.", "Logowanie", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Sukces: pobierz Id i otwórz Dashboard
+                int userId = UserService.GetUserIdByUsername(user);
+                if (userId <= 0)
+                {
+                    MessageBox.Show("Nie uda³o siê pobraæ identyfikatora u¿ytkownika.", "B³¹d", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
                 var dashboard = new DashboardView(userId);
                 dashboard.Show();
 
-                // Zamknij LoginView
-                foreach (Window window in Application.Current.Windows)
-                {
-                    if (window is Views.LoginView)
-                    {
-                        window.Close();
-                        break;
-                    }
-                }
+                // Zamknij okno logowania
+                Application.Current.Windows
+                    .OfType<LoginView>()
+                    .FirstOrDefault()
+                    ?.Close();
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("B³êdny login lub has³o.");
+                MessageBox.Show($"Wyst¹pi³ b³¹d podczas logowania:\n{ex.Message}", "B³¹d", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        private void RaiseCanExecuteChanged()
+        {
+            if (LoginCommand is RelayCommand rc)
+                rc.RaiseCanExecuteChanged();
+        }
+
+        // INotifyPropertyChanged
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

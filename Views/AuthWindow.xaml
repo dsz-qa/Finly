@@ -1,7 +1,7 @@
-﻿<Window x:Class="Aplikacja_do_sledzenia_wydatkow.Views.AuthWindow"
+﻿<Window x:Class="Finly.Views.AuthWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:helpers="clr-namespace:Aplikacja_do_sledzenia_wydatkow.Helpers"
+        xmlns:helpers="clr-namespace:Finly.Helpers"
         Title="Logowanie / Rejestracja"
         Height="360" Width="420"
         WindowStartupLocation="CenterScreen">
@@ -87,7 +87,7 @@
                       Checked="RegShowPassword_Checked"
                       Unchecked="RegShowPassword_Unchecked"/>
 
-            <!-- CHECKLISTA wymagań hasła – widoczna od razu -->
+            <!-- CHECKLISTA wymagań hasła -->
             <StackPanel Margin="0,0,0,6">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="{Binding PwdHasMinLen,     Converter={StaticResource BoolToSymbol}}"
@@ -139,7 +139,6 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- Komunikat z VM (np. błąd / sukces) -->
             <TextBlock Text="{Binding RegisterMessage}"
                        Foreground="{Binding RegisterMessageBrush}"
                        Margin="0,6,0,2"

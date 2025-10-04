@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
-using Aplikacja_do_sledzenia_wydatkow.Models;
+using Finly.Models;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Services
+namespace Finly.Services
 {
     public static class DatabaseService
     {
@@ -12,21 +12,17 @@ namespace Aplikacja_do_sledzenia_wydatkow.Services
         public static SQLiteConnection GetConnection()
             => new SQLiteConnection(ConnectionString);
 
-        /// <summary>
-        /// Otwiera po³¹czenie i gwarantuje, ¿e schemat (tabele/indeksy) istnieje.
-        /// </summary>
         public static SQLiteConnection OpenAndEnsureSchema()
         {
             var con = GetConnection();
             con.Open();
-            SchemaService.Ensure(con); // m.in. UNIQUE INDEX na Users(Username COLLATE NOCASE)
+            SchemaService.Ensure(con);
             return con;
         }
 
         private static string ToIsoDate(DateTime dt) => dt.ToString("yyyy-MM-dd");
 
-        // ================== EXPENSES ==================
-
+        // ---------- EXPENSES ----------
         public static void AddExpense(Expense expense)
         {
             using var connection = OpenAndEnsureSchema();
@@ -170,7 +166,8 @@ ORDER BY e.Date DESC, e.Id DESC;";
                     Date = DateTime.Parse(r.GetString(2)),
                     Description = r.IsDBNull(3) ? "" : r.GetString(3),
                     UserId = r.GetInt32(4),
-                    CategoryName = r.IsDBNull(5) ? "Brak kategorii" : r.GetString(5)
+                    CategoryName = r.IsDBNull(5) ? "Brak kategorii" : r.GetString(5),
+                    Category = r.IsDBNull(5) ? "Brak kategorii" : r.GetString(5)
                 });
             }
             return list;
@@ -199,15 +196,14 @@ ORDER BY e.Date DESC, e.Id DESC;";
                     Date = DateTime.Parse(r.GetString(2)),
                     Description = r.IsDBNull(3) ? "" : r.GetString(3),
                     CategoryName = r.IsDBNull(4) ? "Brak kategorii" : r.GetString(4),
+                    Category = r.IsDBNull(4) ? "Brak kategorii" : r.GetString(4),
                     UserId = userId
                 });
             }
             return list;
         }
 
-        // ================== CATEGORIES ==================
-
-        /// <summary> Zwróæ nazwê kategorii po Id (null, jeœli brak) </summary>
+        // ---------- CATEGORIES ----------
         public static string? GetCategoryNameById(int categoryId)
         {
             using var connection = OpenAndEnsureSchema();
@@ -218,13 +214,11 @@ ORDER BY e.Date DESC, e.Id DESC;";
             return res == null || res == DBNull.Value ? null : Convert.ToString(res);
         }
 
-        /// <summary> Spróbuj znaleŸæ Id kategorii po nazwie: najpierw per-user, potem global. </summary>
         public static int? TryGetCategoryIdByName(string categoryName, int userId)
         {
             if (string.IsNullOrWhiteSpace(categoryName)) return null;
             using var connection = OpenAndEnsureSchema();
 
-            // per-user
             using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = @"SELECT Id FROM Categories
@@ -237,7 +231,6 @@ ORDER BY e.Date DESC, e.Id DESC;";
                     return Convert.ToInt32(r);
             }
 
-            // globalnie
             using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = @"SELECT Id FROM Categories
@@ -252,7 +245,6 @@ ORDER BY e.Date DESC, e.Id DESC;";
             return null;
         }
 
-        /// <summary> Zwróæ Id istniej¹cej kategorii albo utwórz i zwróæ nowe Id. </summary>
         public static int GetOrCreateCategoryId(string categoryName, int userId)
         {
             if (string.IsNullOrWhiteSpace(categoryName))
@@ -260,7 +252,6 @@ ORDER BY e.Date DESC, e.Id DESC;";
 
             using var connection = OpenAndEnsureSchema();
 
-            // 1) per-user (jeœli istnieje)
             using (var checkUser = connection.CreateCommand())
             {
                 checkUser.CommandText = @"
@@ -274,7 +265,6 @@ LIMIT 1;";
                     return Convert.ToInt32(res);
             }
 
-            // 2) globalnie
             using (var checkGlobal = connection.CreateCommand())
             {
                 checkGlobal.CommandText = @"
@@ -287,7 +277,6 @@ LIMIT 1;";
                     return Convert.ToInt32(res);
             }
 
-            // 3) utwórz (bez wyj¹tku UNIQUE)
             using (var insert = connection.CreateCommand())
             {
                 insert.CommandText = @"
@@ -306,7 +295,6 @@ VALUES (@name, @userId);";
             }
         }
 
-        /// <summary> Kategorie dostêpne dla usera (jego + globalne, bez duplikatów). </summary>
         public static List<string> GetCategoriesByUser(int userId)
         {
             var list = new List<string>();

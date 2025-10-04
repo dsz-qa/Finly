@@ -1,8 +1,8 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
-using Aplikacja_do_sledzenia_wydatkow.ViewModels;
+using Finly.ViewModels;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Views
+namespace Finly.Views
 {
     public partial class AuthWindow : Window
     {
@@ -24,8 +24,6 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
             var pwd = PwdLoginText.Visibility == Visibility.Visible ? PwdLoginText.Text : PwdLogin.Password;
             if (VM.Login(pwd))
             {
-                // Otwórz panel główny
-                // UWAGA: jeśli twój DashboardView ma inny konstruktor – dostosuj tę linię.
                 var dash = new DashboardView(VM.LoggedInUserId);
                 dash.Show();
                 Close();
@@ -42,13 +40,12 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
             var pwd = PwdRegText.Visibility == Visibility.Visible ? PwdRegText.Text : PwdReg.Password;
             var conf = PwdRegConfirmText.Visibility == Visibility.Visible ? PwdRegConfirmText.Text : PwdRegConfirm.Password;
 
-            // Upewnij się, że VM ma aktualny Username (wiążemy go w XAML z RegUsername)
             VM.UpdatePasswordHints(pwd, conf);
 
             if (VM.Register(pwd, conf))
             {
-                // VM sam przełącza na login i ustawia komunikat „Konto utworzone…”
-                RegShowPassword_Unchecked(null!, null!); // schowaj jawne pola, jeśli były włączone
+                // VM przełącza na login; schowaj jawne pola jeśli były włączone
+                RegShowPassword_Unchecked(null!, null!);
             }
         }
 
@@ -97,7 +94,7 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
         // ====== Live walidacja hasła (rejestracja) ======
         private void PwdReg_PasswordChanged(object sender, RoutedEventArgs e)
         {
-            if (PwdRegText.Visibility != Visibility.Visible) // tylko gdy ukryte
+            if (PwdRegText.Visibility != Visibility.Visible)
                 VM.UpdatePasswordHints(PwdReg.Password, PwdRegConfirm.Password);
         }
 
@@ -109,7 +106,7 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
 
         private void PwdRegText_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (PwdRegText.Visibility == Visibility.Visible)  // tylko gdy jawne
+            if (PwdRegText.Visibility == Visibility.Visible)
                 VM.UpdatePasswordHints(PwdRegText.Text, PwdRegConfirmText.Text);
         }
 

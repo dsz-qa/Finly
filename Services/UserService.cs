@@ -3,24 +3,25 @@ using System.Data.SQLite;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Services
+namespace Finly.Services
 {
     public static class UserService
     {
-        // === PUBLIC API ===
+        // ========== PUBLIC API ==========
 
         public static bool Register(string username, string password)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            var normalized = Normalize(username);
+            if (normalized is null || string.IsNullOrWhiteSpace(password))
                 return false;
 
-            var normalized = username.Trim().ToLowerInvariant();
             var passwordHash = HashPassword(password);
 
             using var connection = DatabaseService.OpenAndEnsureSchema();
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"INSERT INTO Users (Username, PasswordHash) 
-                                VALUES (@username, @passwordHash);";
+            cmd.CommandText = @"
+INSERT INTO Users (Username, PasswordHash)
+VALUES (@username, @passwordHash);";
             cmd.Parameters.AddWithValue("@username", normalized);
             cmd.Parameters.AddWithValue("@passwordHash", passwordHash);
 
@@ -30,41 +31,42 @@ namespace Aplikacja_do_sledzenia_wydatkow.Services
             }
             catch (SQLiteException)
             {
-                // np. unikalnoœæ loginu (z indeksem COLLATE NOCASE)
+                // np. naruszenie unikalnoœci loginu (index COLLATE NOCASE)
                 return false;
             }
         }
 
         public static bool IsUsernameAvailable(string username)
         {
-            if (string.IsNullOrWhiteSpace(username)) return false;
-
-            var normalized = username.Trim().ToLowerInvariant();
+            var normalized = Normalize(username);
+            if (normalized is null) return false;
 
             using var connection = DatabaseService.OpenAndEnsureSchema();
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT 1 
-                                FROM Users 
-                                WHERE Username = @username COLLATE NOCASE 
-                                LIMIT 1;";
+            cmd.CommandText = @"
+SELECT 1
+FROM Users
+WHERE Username = @username COLLATE NOCASE
+LIMIT 1;";
             cmd.Parameters.AddWithValue("@username", normalized);
 
             var exists = cmd.ExecuteScalar();
-            return (exists == null || exists == DBNull.Value); // true = wolny
+            // true = wolny (brak wiersza)
+            return exists is null || exists == DBNull.Value;
         }
 
         public static bool Login(string username, string password)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            var normalized = Normalize(username);
+            if (normalized is null || string.IsNullOrWhiteSpace(password))
                 return false;
-
-            var normalized = username.Trim().ToLowerInvariant();
 
             using var connection = DatabaseService.OpenAndEnsureSchema();
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT PasswordHash 
-                                FROM Users 
-                                WHERE Username = @username COLLATE NOCASE;";
+            cmd.CommandText = @"
+SELECT PasswordHash
+FROM Users
+WHERE Username = @username COLLATE NOCASE;";
             cmd.Parameters.AddWithValue("@username", normalized);
 
             using var reader = cmd.ExecuteReader();
@@ -76,41 +78,28 @@ namespace Aplikacja_do_sledzenia_wydatkow.Services
 
         public static int GetUserIdByUsername(string username)
         {
-            var normalized = (username ?? string.Empty).Trim().ToLowerInvariant();
+            var normalized = Normalize(username) ?? string.Empty;
 
             using var connection = DatabaseService.OpenAndEnsureSchema();
             using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT Id 
-                                FROM Users 
-                                WHERE Username = @username COLLATE NOCASE;";
+            cmd.CommandText = @"
+SELECT Id
+FROM Users
+WHERE Username = @username COLLATE NOCASE;";
             cmd.Parameters.AddWithValue("@username", normalized);
 
             var result = cmd.ExecuteScalar();
-            return (result == null || result == DBNull.Value) ? -1 : Convert.ToInt32(result);
-        }
-
-        // === INTERNALS ===
-
-        private static string HashPassword(string password)
-        {
-            using var sha = SHA256.Create();
-            var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(bytes);
-        }
-
-        private static bool VerifyPassword(string password, string storedHash)
-        {
-            var incoming = HashPassword(password);
-            return string.Equals(incoming, storedHash, StringComparison.Ordinal);
+            return (result is null || result == DBNull.Value) ? -1 : Convert.ToInt32(result);
         }
 
         public static bool DeleteAccount(int userId)
         {
             using var con = DatabaseService.OpenAndEnsureSchema();
             using var tx = con.BeginTransaction();
+
             try
             {
-                // 1) usuñ wydatki
+                // 1) Usuñ wydatki u¿ytkownika
                 using (var cmd = con.CreateCommand())
                 {
                     cmd.CommandText = "DELETE FROM Expenses WHERE UserId = @id;";
@@ -118,15 +107,15 @@ namespace Aplikacja_do_sledzenia_wydatkow.Services
                     cmd.ExecuteNonQuery();
                 }
 
-                // 2) usuñ kategorie tylko tego usera (globalnych nie ruszamy)
+                // 2) Usuñ kategorie przypisane do u¿ytkownika (globalnych z NULL nie ruszamy)
                 using (var cmd = con.CreateCommand())
                 {
-                    cmd.CommandText = "DELETE FROM Categories WHERE COALESCE(UserId,0) = @id;";
+                    cmd.CommandText = "DELETE FROM Categories WHERE UserId = @id;";
                     cmd.Parameters.AddWithValue("@id", userId);
                     cmd.ExecuteNonQuery();
                 }
 
-                // 3) usuñ samego u¿ytkownika
+                // 3) Usuñ u¿ytkownika
                 using (var cmd = con.CreateCommand())
                 {
                     cmd.CommandText = "DELETE FROM Users WHERE Id = @id;";
@@ -144,6 +133,27 @@ namespace Aplikacja_do_sledzenia_wydatkow.Services
                 try { tx.Rollback(); } catch { /* ignorujemy */ }
                 return false;
             }
+        }
+
+        // ========== INTERNALS ==========
+
+        private static string? Normalize(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return null;
+            return username.Trim().ToLowerInvariant();
+        }
+
+        private static string HashPassword(string password)
+        {
+            using var sha = SHA256.Create();
+            var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return Convert.ToBase64String(bytes);
+        }
+
+        private static bool VerifyPassword(string password, string storedHash)
+        {
+            var incoming = HashPassword(password);
+            return string.Equals(incoming, storedHash, StringComparison.Ordinal);
         }
     }
 }

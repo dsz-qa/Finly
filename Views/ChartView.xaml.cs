@@ -1,33 +1,35 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+
 using LiveChartsCore;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
 using LiveChartsCore.SkiaSharpView.WPF;
 using SkiaSharp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Windows;
-using Aplikacja_do_sledzenia_wydatkow.Models;
-using Aplikacja_do_sledzenia_wydatkow.Services;
-using Aplikacja_do_sledzenia_wydatkow.Models;
-using Aplikacja_do_sledzenia_wydatkow.Services;
-using System.Windows.Controls;
-using System.Windows.Media.Imaging;
-using System.Windows.Media;
-using System.IO;
+
 using PdfSharp.Drawing;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Views
+using Finly.Models;
+using Finly.Services;
+
+namespace Finly.Views
 {
     public partial class ChartView : Window
     {
         private readonly int _userId;
+        private List<Expense> expenses = new();
 
         public ChartView(int userId)
         {
             InitializeComponent();
             _userId = userId;
-            LoadChartData(); // Wczytaj wszystkie dane na start
+            LoadChartData(); // wczytaj wszystkie dane na start
         }
 
         private void FilterButton_Click(object sender, RoutedEventArgs e)
@@ -40,8 +42,8 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
         private void LoadChartData(DateTime? start = null, DateTime? end = null)
         {
             var allExpenses = DatabaseService.GetExpensesWithCategory()
-            .Where(e => e.UserId == _userId)
-            .ToList();
+                .Where(e => e.UserId == _userId)
+                .ToList();
 
             var filtered = allExpenses
                 .Where(e =>
@@ -52,12 +54,14 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
             LoadPieChart(filtered);
             LoadLineChart(filtered);
 
+            // lista do sortowania w comboboxach
             expenses = filtered.Select(e => new Expense
             {
                 Id = e.Id,
                 Amount = e.Amount,
                 Category = e.CategoryName,
-                Date = e.Date
+                Date = e.Date,
+                Description = e.Description ?? string.Empty
             }).ToList();
         }
 
@@ -67,7 +71,7 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
                 .GroupBy(e => e.CategoryName)
                 .Select(g => new PieSeries<decimal>
                 {
-                    Name = g.Key,
+                    Name = g.Key ?? "Brak kategorii",
                     Values = new List<decimal> { (decimal)g.Sum(e => e.Amount) },
                     DataLabelsSize = 14,
                     DataLabelsPosition = LiveChartsCore.Measure.PolarLabelsPosition.Middle,
@@ -128,7 +132,6 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
                 Filter = "PNG Image|*.png",
                 FileName = "WykresKolowy"
             };
-
             if (saveDialogPie.ShowDialog() != true) return;
 
             var saveDialogLine = new Microsoft.Win32.SaveFileDialog
@@ -136,48 +139,56 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
                 Filter = "PNG Image|*.png",
                 FileName = "WykresLiniowy"
             };
-
             if (saveDialogLine.ShowDialog() != true) return;
 
             // Zapis PieChart
-            var pieBitmap = new RenderTargetBitmap((int)pieChart.ActualWidth, (int)pieChart.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            var pieBitmap = new RenderTargetBitmap(
+                Math.Max(1, (int)pieChart.ActualWidth),
+                Math.Max(1, (int)pieChart.ActualHeight),
+                96, 96, PixelFormats.Pbgra32);
             pieBitmap.Render(pieChart);
             var pieEncoder = new PngBitmapEncoder();
             pieEncoder.Frames.Add(BitmapFrame.Create(pieBitmap));
             using (var stream = File.Create(saveDialogPie.FileName))
-            {
                 pieEncoder.Save(stream);
-            }
 
             // Zapis LineChart
-            var lineBitmap = new RenderTargetBitmap((int)lineChart.ActualWidth, (int)lineChart.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            var lineBitmap = new RenderTargetBitmap(
+                Math.Max(1, (int)lineChart.ActualWidth),
+                Math.Max(1, (int)lineChart.ActualHeight),
+                96, 96, PixelFormats.Pbgra32);
             lineBitmap.Render(lineChart);
             var lineEncoder = new PngBitmapEncoder();
             lineEncoder.Frames.Add(BitmapFrame.Create(lineBitmap));
             using (var stream = File.Create(saveDialogLine.FileName))
-            {
                 lineEncoder.Save(stream);
-            }
 
-            MessageBox.Show("Wykresy zapisano jako pliki PNG.", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Wykresy zapisano jako pliki PNG.", "Sukces",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void ExportChartToPdf_Click(object sender, RoutedEventArgs e)
         {
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
-            string pieChartPath = System.IO.Path.GetTempFileName() + "_pie.png";
-            string lineChartPath = System.IO.Path.GetTempFileName() + "_line.png";
+            string pieChartPath = Path.GetTempFileName() + "_pie.png";
+            string lineChartPath = Path.GetTempFileName() + "_line.png";
 
             // Render PieChart
-            var pieBitmap = new RenderTargetBitmap((int)pieChart.ActualWidth, (int)pieChart.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            var pieBitmap = new RenderTargetBitmap(
+                Math.Max(1, (int)pieChart.ActualWidth),
+                Math.Max(1, (int)pieChart.ActualHeight),
+                96, 96, PixelFormats.Pbgra32);
             pieBitmap.Render(pieChart);
             var pieEncoder = new PngBitmapEncoder();
             pieEncoder.Frames.Add(BitmapFrame.Create(pieBitmap));
             using (var stream = File.Create(pieChartPath)) pieEncoder.Save(stream);
 
             // Render LineChart
-            var lineBitmap = new RenderTargetBitmap((int)lineChart.ActualWidth, (int)lineChart.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            var lineBitmap = new RenderTargetBitmap(
+                Math.Max(1, (int)lineChart.ActualWidth),
+                Math.Max(1, (int)lineChart.ActualHeight),
+                96, 96, PixelFormats.Pbgra32);
             lineBitmap.Render(lineChart);
             var lineEncoder = new PngBitmapEncoder();
             lineEncoder.Frames.Add(BitmapFrame.Create(lineBitmap));
@@ -186,9 +197,8 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
             var saveDialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "PDF Document|*.pdf",
-                FileName = "wykresy_wydatków"
+                FileName = "wykresy_wydatkow"
             };
-
             if (saveDialog.ShowDialog() == true)
             {
                 var doc = new PdfSharp.Pdf.PdfDocument();
@@ -202,34 +212,31 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
                     double availableWidth = page.Width - 2 * margin;
                     double halfHeight = (page.Height - 3 * margin) / 2;
 
-                    // Rysowanie PieChart
                     gfx.DrawImage(imgPie, margin, margin, availableWidth, halfHeight);
-
-                    // Rysowanie LineChart pod spodem
                     gfx.DrawImage(imgLine, margin, margin + halfHeight + margin, availableWidth, halfHeight);
                 }
 
                 doc.Save(saveDialog.FileName);
-                MessageBox.Show("Wykresy zosta³y zapisane jako PDF.", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Wykresy zosta³y zapisane jako PDF.", "Sukces",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
 
-            File.Delete(pieChartPath);
-            File.Delete(lineChartPath);
+            try { File.Delete(pieChartPath); } catch { /* ignore */ }
+            try { File.Delete(lineChartPath); } catch { /* ignore */ }
         }
-
-        private List<Expense> expenses; // Lista wydatków
 
         private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            string selected = (SortComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
+            var selected = (SortComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
 
-            if (expenses == null)
+            if (expenses == null || expenses.Count == 0)
             {
-                MessageBox.Show("Brak danych do sortowania.", "B³¹d", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Brak danych do sortowania.", "B³¹d",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
-            List<Expense> sortedExpenses = new List<Expense>(expenses);
+            var sortedExpenses = expenses;
 
             if (selected == "Kategoria A-Z")
                 sortedExpenses = expenses.OrderBy(x => x.Category).ToList();
@@ -240,24 +247,30 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
             else if (selected == "Suma malej¹co")
                 sortedExpenses = expenses.OrderByDescending(x => x.Amount).ToList();
 
-            // Odœwie¿ wykres po sortowaniu
             var displayExpenses = sortedExpenses.Select(x => new ExpenseDisplayModel
             {
                 Id = x.Id,
                 Amount = x.Amount,
                 CategoryName = x.Category,
-                Date = x.Date
+                Date = x.Date,
+                Description = x.Description
             }).ToList();
 
-            // Odœwie¿ wykres
             LoadPieChart(displayExpenses);
         }
 
         private void DateSortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            string selected = (DateSortComboBox.SelectedItem as ComboBoxItem)?.Content.ToString();
+            var selected = (DateSortComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
 
-            List<Expense> sortedExpenses = new List<Expense>(expenses);
+            if (expenses == null || expenses.Count == 0)
+            {
+                MessageBox.Show("Brak danych do sortowania.", "B³¹d",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var sortedExpenses = expenses;
 
             if (selected == "Data rosn¹co")
                 sortedExpenses = expenses.OrderBy(x => x.Date).ToList();

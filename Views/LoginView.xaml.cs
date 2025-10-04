@@ -1,8 +1,7 @@
-using Aplikacja_do_sledzenia_wydatkow.ViewModels;
-using System.Linq;
 using System.Windows;
+using Finly.ViewModels;
 
-namespace Aplikacja_do_sledzenia_wydatkow.Views
+namespace Finly.Views
 {
     public partial class LoginView : Window
     {
@@ -12,20 +11,16 @@ namespace Aplikacja_do_sledzenia_wydatkow.Views
         {
             InitializeComponent();
             _viewModel = new LoginViewModel();
-            this.DataContext = _viewModel;
+            DataContext = _viewModel; // ustawiamy VM dla bindingów
         }
 
         private void LoginButton_Click(object sender, RoutedEventArgs e)
         {
-            // Rêczne przypisanie has³a z PasswordBox
-            _viewModel.Username = UsernameBox.Text;
-            _viewModel.Password = PasswordBox.Password;
+            // pobierz dane z kontrolek
+            _viewModel.Username = UsernameBox.Text ?? string.Empty;
+            _viewModel.Password = PasswordBox.Password ?? string.Empty;
 
-            // Debug: wyœwietlenie loginu i has³a (do sprawdzenia poprawnoœci)
-            System.Diagnostics.Debug.WriteLine($"[LOGIN VIEWMODEL] Username: {_viewModel.Username}");
-            System.Diagnostics.Debug.WriteLine($"[LOGIN VIEWMODEL] Password: {_viewModel.Password}");
-
-            // Uruchomienie komendy logowania
+            // odpal komendê logowania (ma CanExecute)
             if (_viewModel.LoginCommand.CanExecute(null))
             {
                 _viewModel.LoginCommand.Execute(null);

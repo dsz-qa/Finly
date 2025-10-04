@@ -1,0 +1,9 @@
+.vs/
+**/bin/
+**/obj/
+Debug*/
+Release*/
+
+# lokalna baza (jeśli nie chcesz jej w repo)
+budgetApp.db
+*.db

@@ -1,0 +1,16 @@
+<Window x:Class="Aplikacja_do_sledzenia_wydatkow.Views.LoginView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Logowanie" Height="300" Width="400">
+    <Grid Margin="20">
+        <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="Login:" Margin="0,10" />
+            <TextBox x:Name="UsernameBox" Text="{Binding Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,10"/>
+
+            <TextBlock Text="Haslo:" Margin="0,10" />
+            <PasswordBox x:Name="PasswordBox" Margin="0,10"/>
+
+            <Button x:Name="LoginButton" Content="Zaloguj" Margin="0,10" Click="LoginButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

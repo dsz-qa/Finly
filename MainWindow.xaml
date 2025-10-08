@@ -3,14 +3,23 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Finly.Views"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow"
+        ResizeMode="CanResize"
+        KeyDown="Window_KeyDown"
+        Loaded="Window_Loaded">
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="515*"/>
             <ColumnDefinition Width="276*"/>
             <ColumnDefinition Width="9*"/>
         </Grid.ColumnDefinitions>
+
+        <!-- tu wstawiaj zawartość kolumn, np.:
+        <StackPanel Grid.Column="0"/>
+        <StackPanel Grid.Column="1"/>
+        <Border Grid.Column="2"/>
+        -->
     </Grid>
 </Window>

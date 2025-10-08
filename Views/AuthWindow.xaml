@@ -3,8 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:helpers="clr-namespace:Finly.Helpers"
         Title="Logowanie / Rejestracja"
-        Height="360" Width="420"
-        WindowStartupLocation="CenterScreen">
+        ResizeMode="CanResize"
+        KeyDown="Window_KeyDown"
+        Loaded="Window_Loaded">
 
     <Window.Resources>
         <helpers:BoolToBrushConverter   x:Key="BoolToBrush"  TrueBrush="SeaGreen" FalseBrush="IndianRed"/>

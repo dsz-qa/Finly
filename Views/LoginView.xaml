@@ -1,17 +1,48 @@
 <Window x:Class="Finly.Views.LoginView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Logowanie" Height="300" Width="400">
-    <Grid Margin="20">
-        <StackPanel VerticalAlignment="Center">
-            <TextBlock Text="Login:" Margin="0,10" />
-            <TextBox x:Name="UsernameBox"
-               Text="{Binding Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-               Margin="0,10"/>
-            <TextBlock Text="Has�o:" Margin="0,10" />
-            <PasswordBox x:Name="PasswordBox" Margin="0,10"/>
-            <Button x:Name="LoginButton" Content="Zaloguj" Margin="0,10" Click="LoginButton_Click"/>
-        </StackPanel>
-    </Grid>
-</Window>
+        Title="Logowanie"
+        KeyDown="Window_KeyDown">
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="1"
+                    Background="#1A1B1E"
+                    CornerRadius="12"
+                    Padding="24"
+                    Margin="24"
+                    MaxWidth="480"
+                    HorizontalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Zaloguj się"
+                               Foreground="White"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,16"/>
+
+                    <TextBlock Text="Login:" Foreground="White" Margin="0,6,0,4"/>
+                    <TextBox x:Name="UsernameBox"
+                             Text="{Binding Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             MinHeight="34" Margin="0,0,0,8"/>
+
+                    <TextBlock Text="Hasło:" Foreground="White" Margin="0,6,0,4"/>
+                    <PasswordBox x:Name="PasswordBox" MinHeight="34" Margin="0,0,0,16"/>
+
+                    <Button x:Name="LoginButton"
+                            Content="Zaloguj"
+                            Height="38"
+                            Click="LoginButton_Click"/>
+
+                    <TextBlock Text="F11 — pełny ekran • Esc — zamknij"
+                               Foreground="#B0B0B0" FontSize="12" Margin="0,10,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</Window>

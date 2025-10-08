@@ -10,8 +10,14 @@ namespace Finly
             base.OnStartup(e);
 
             var auth = new AuthWindow();
+
+            // TWARDY fullscreen na wypadek, gdyby styl nie zadziałał:
+            auth.WindowState = WindowState.Maximized;
+            auth.ResizeMode = ResizeMode.CanMinimize;
+
             MainWindow = auth;
             auth.Show();
         }
     }
 }
+

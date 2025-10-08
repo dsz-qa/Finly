@@ -1,6 +1,7 @@
-﻿using System.Windows;
+﻿using Finly.ViewModels;
+using System.Windows;
 using System.Windows.Controls;
-using Finly.ViewModels;
+using System.Windows.Input;
 
 namespace Finly.Views
 {
@@ -8,10 +9,16 @@ namespace Finly.Views
     {
         private AuthViewModel VM => (AuthViewModel)DataContext;
 
+        // --- stan do trybu fullscreen (bez ramek) ---
+        private WindowStyle _prevStyle;
+        private ResizeMode _prevResize;
+        private WindowState _prevState;
+
         public AuthWindow()
         {
             InitializeComponent();
-            DataContext = new AuthViewModel();
+            DataContext = new AuthViewModel(); // startowy VM
+            // Nie wywołujemy EnterFullscreen(); okno i tak startuje zmaksymalizowane dzięki stylowi w App.xaml
         }
 
         // ====== Przełączanie paneli ======
@@ -24,7 +31,11 @@ namespace Finly.Views
             var pwd = PwdLoginText.Visibility == Visibility.Visible ? PwdLoginText.Text : PwdLogin.Password;
             if (VM.Login(pwd))
             {
-                var dash = new DashboardView(VM.LoggedInUserId);
+                var dash = new DashboardView(VM.LoggedInUserId)
+                {
+                    WindowState = WindowState.Maximized,
+                    ResizeMode = ResizeMode.CanResize
+                };
                 dash.Show();
                 Close();
             }
@@ -33,6 +44,7 @@ namespace Finly.Views
                 MessageBox.Show("Błędny login lub hasło.", "Logowanie", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
+
 
         // ====== Rejestracja ======
         private void RegisterButton_Click(object sender, RoutedEventArgs e)
@@ -44,7 +56,7 @@ namespace Finly.Views
 
             if (VM.Register(pwd, conf))
             {
-                // VM przełącza na login; schowaj jawne pola jeśli były włączone
+                // VM przełączył na login; schowaj jawne pola, jeżeli były aktywne
                 RegShowPassword_Unchecked(null!, null!);
             }
         }
@@ -115,5 +127,46 @@ namespace Finly.Views
             if (PwdRegConfirmText.Visibility == Visibility.Visible)
                 VM.UpdatePasswordHints(PwdRegText.Text, PwdRegConfirmText.Text);
         }
+
+        // ====== Skróty klawiatury ======
+        private void Window_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.F11) ToggleFullscreen();
+            if (e.Key == Key.Escape) Close();
+        }
+
+        // ====== Fullscreen helpers ======
+        private void EnterFullscreen()
+        {
+            _prevStyle = WindowStyle;
+            _prevResize = ResizeMode;
+            _prevState = WindowState;
+
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            WindowState = WindowState.Maximized;
+        }
+
+        private void ExitFullscreen()
+        {
+            WindowStyle = _prevStyle;
+            ResizeMode = _prevResize;
+            WindowState = _prevState == WindowState.Minimized ? WindowState.Normal : _prevState;
+        }
+
+        private void ToggleFullscreen()
+        {
+            if (WindowStyle == WindowStyle.None && WindowState == WindowState.Maximized)
+                ExitFullscreen();
+            else
+                EnterFullscreen();
+        }
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Maximized; // start na cały ekran
+            ResizeMode = ResizeMode.CanResize;  // pozwól zmieniać rozmiar / maksymalizować
+        }
+
+
     }
 }

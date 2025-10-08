@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -17,20 +17,72 @@ namespace Finly.Views
         private readonly int _userId;
         private List<ExpenseDisplayModel> _expenses = new();
 
+        // --- Tryb fullscreen (F11) ---
+        private WindowStyle _prevStyle;
+        private ResizeMode _prevResize;
+        private WindowState _prevState;
+
         public DashboardView(int userId)
         {
             InitializeComponent();
+
+            // twarde ustawienia (gdyby styl globalny byÅ‚ nadpisany)
+            WindowState = WindowState.Maximized;
+            ResizeMode = ResizeMode.CanResize;
+
             _userId = userId;
             LoadExpenses();
             LoadCategories();
         }
 
+        // uruchom zawsze w peÅ‚nym ekranie
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Maximized;
+            ResizeMode = ResizeMode.CanResize;
+            Top = 0;
+            Left = 0;
+        }
+
+        // skrÃ³ty: F11 â†” borderless, Esc â†” zamknij
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.F11) ToggleFullscreen();
+            if (e.Key == Key.Escape) Close();
+        }
+
+        private void EnterFullscreen()
+        {
+            _prevStyle = WindowStyle;
+            _prevResize = ResizeMode;
+            _prevState = WindowState;
+
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            WindowState = WindowState.Maximized;
+        }
+
+        private void ExitFullscreen()
+        {
+            WindowStyle = _prevStyle;
+            ResizeMode = _prevResize;
+            WindowState = _prevState == WindowState.Minimized ? WindowState.Normal : _prevState;
+        }
+
+        private void ToggleFullscreen()
+        {
+            if (WindowStyle == WindowStyle.None && WindowState == WindowState.Maximized)
+                ExitFullscreen();
+            else
+                EnterFullscreen();
+        }
+
         private void DeleteAccount_Click(object sender, RoutedEventArgs e)
         {
             var ask = MessageBox.Show(
-                "Na pewno chcesz trwale usun¹æ konto wraz ze wszystkimi wydatkami i kategoriami?\n" +
-                "Tej operacji nie mo¿na cofn¹æ.",
-                "Usuñ konto",
+                "Na pewno chcesz trwale usunÄ…Ä‡ konto wraz ze wszystkimi wydatkami i kategoriami?\n" +
+                "Tej operacji nie moÅ¼na cofnÄ…Ä‡.",
+                "UsuÅ„ konto",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
@@ -41,11 +93,12 @@ namespace Finly.Views
                 var ok = UserService.DeleteAccount(_userId);
                 if (!ok)
                 {
-                    MessageBox.Show("Nie uda³o siê usun¹æ konta.", "B³¹d", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Nie udaÅ‚o siÄ™ usunÄ…Ä‡ konta.", "BÅ‚Ä…d",
+                                    MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
-                // Powrót do logowania z banerem „konto usuniête”
+                // PowrÃ³t do logowania z banerem â€žkonto usuniÄ™teâ€
                 var auth = new AuthWindow();
                 var vm = (AuthViewModel)auth.DataContext;
                 vm.ShowAccountDeletedInfo();
@@ -56,8 +109,8 @@ namespace Finly.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Wyst¹pi³ b³¹d podczas usuwania konta:\n" + ex.Message,
-                                "B³¹d", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("WystÄ…piÅ‚ bÅ‚Ä…d podczas usuwania konta:\n" + ex.Message,
+                                "BÅ‚Ä…d", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -94,7 +147,7 @@ WHERE e.UserId = @userId;";
                             {
                                 Id = reader.GetInt32(0),
                                 Amount = reader.GetDouble(1),
-                                Date = DateTime.Parse(reader.GetString(2)), // w DB tekst ISO yyyy-MM-dd
+                                Date = DateTime.Parse(reader.GetString(2)), // ISO yyyy-MM-dd
                                 Description = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
                                 Category = reader.IsDBNull(4) ? "Brak kategorii" : reader.GetString(4),
                                 UserId = _userId
@@ -107,18 +160,18 @@ WHERE e.UserId = @userId;";
             _expenses = expenses;
             ExpenseListView.ItemsSource = _expenses;
 
-            TotalAmountText.Text = _expenses.Sum(e => e.Amount).ToString("0.00") + " z³";
+            TotalAmountText.Text = _expenses.Sum(e => e.Amount).ToString("0.00") + " zÅ‚";
             EntryCountText.Text = _expenses.Count.ToString();
 
             if (_expenses.Any())
             {
                 var days = (_expenses.Max(e => e.Date) - _expenses.Min(e => e.Date)).TotalDays + 1;
                 var average = _expenses.Sum(e => e.Amount) / days;
-                DailyAverageText.Text = $"{average:0.00} z³";
+                DailyAverageText.Text = $"{average:0.00} zÅ‚";
             }
             else
             {
-                DailyAverageText.Text = "0 z³";
+                DailyAverageText.Text = "0 zÅ‚";
             }
         }
 
@@ -157,7 +210,9 @@ WHERE e.UserId = @userId;";
 
         private void FilterButton_Click(object sender, RoutedEventArgs e)
         {
-            string selectedCategory = CategoryFilterComboBox.Text?.Trim();
+            // 1) non-null string (brak ostrzeÅ¼eÅ„)
+            var selectedCategory = (CategoryFilterComboBox.Text ?? string.Empty).Trim();
+
             DateTime? from = FromDatePicker.SelectedDate;
             DateTime? to = ToDatePicker.SelectedDate;
 
@@ -182,7 +237,7 @@ WHERE e.UserId = @userId;";
         {
             if (ExpenseListView.SelectedItem is ExpenseDisplayModel expenseToDelete)
             {
-                var confirm = MessageBox.Show("Czy na pewno chcesz usun¹æ ten wydatek?",
+                var confirm = MessageBox.Show("Czy na pewno chcesz usunÄ…Ä‡ ten wydatek?",
                                               "Potwierdzenie", MessageBoxButton.YesNo);
                 if (confirm == MessageBoxResult.Yes)
                 {
@@ -193,8 +248,8 @@ WHERE e.UserId = @userId;";
             }
             else
             {
-                MessageBox.Show("Nie wybrano ¿adnego wydatku do usuniêcia.",
-                                "B³¹d", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Nie wybrano Å¼adnego wydatku do usuniÄ™cia.",
+                                "BÅ‚Ä…d", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -208,6 +263,29 @@ WHERE e.UserId = @userId;";
             auth.Show();
             Close();
         }
+
+        // ================== NAWIGACJA â€“ lewy pasek ==================
+        private void Nav_Home_Click(object sender, RoutedEventArgs e)
+        {
+            // np. focus na listÄ™ / reset filtrÃ³w â€“ opcjonalnie
+            ExpenseListView?.Focus();
+        }
+
+        private void Nav_AddExpense_Click(object sender, RoutedEventArgs e)
+        {
+            AddExpenseButton_Click(sender, e); // uÅ¼ywamy istniejÄ…cej logiki
+        }
+
+        private void Nav_Charts_Click(object sender, RoutedEventArgs e)
+        {
+            ShowChart_Click(sender, e);
+        }
+
+        private void OpenSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var win = new SettingsWindow(_userId) { Owner = this };
+            win.ShowDialog();
+            // ThemeService dziaÅ‚a globalnie â€“ nie trzeba nic odÅ›wieÅ¼aÄ‡
+        }
     }
 }
-

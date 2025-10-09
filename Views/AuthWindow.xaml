@@ -8,8 +8,8 @@
         Loaded="Window_Loaded">
 
     <Window.Resources>
-        <helpers:BoolToBrushConverter   x:Key="BoolToBrush"  TrueBrush="SeaGreen" FalseBrush="IndianRed"/>
-        <helpers:BoolToSymbolConverter  x:Key="BoolToSymbol" TrueSymbol="✔"       FalseSymbol="✖"/>
+        <helpers:BoolToBrushConverter   x:Key="_BoolToBrushConverter"  TrueBrush="SeaGreen" FalseBrush="IndianRed"/>
+        <helpers:BoolToSymbolConverter  x:Key="_BoolToSymbolConverter" TrueSymbol="✔"       FalseSymbol="✖"/>
         <BooleanToVisibilityConverter   x:Key="BoolToVis"/>
 
         <Style TargetType="TextBox">

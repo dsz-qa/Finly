@@ -2,6 +2,7 @@
 using Finly.Services;
 using Finly.ViewModels;
 
+
 namespace Finly.Views
 {
     public partial class SettingsWindow : Window
@@ -13,36 +14,42 @@ namespace Finly.Views
             InitializeComponent();
             _userId = userId;
 
-            if (ThemeService.Current == AppTheme.Dark) DarkRadio.IsChecked = true;
-            else LightRadio.IsChecked = true;
+            // Ustaw stan radiobuttonów zgodnie z aktualnym motywem
+            if (ThemeService.Current == AppTheme.Dark)
+                DarkRadio.IsChecked = true;
+            else
+                LightRadio.IsChecked = true;
         }
 
-        private void LightRadio_Checked(object sender, RoutedEventArgs e) => ThemeService.Apply(AppTheme.Light);
-        private void DarkRadio_Checked(object sender, RoutedEventArgs e) => ThemeService.Apply(AppTheme.Dark);
+        private void LightRadio_Checked(object sender, RoutedEventArgs e)
+            => ThemeService.Apply(AppTheme.Light);
+
+        private void DarkRadio_Checked(object sender, RoutedEventArgs e)
+            => ThemeService.Apply(AppTheme.Dark);
 
         private void DeleteAccount_Click(object sender, RoutedEventArgs e)
-        {
-            var ask = MessageBox.Show("Na pewno chcesz trwale usunąć konto?",
-                                      "Usuń konto", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (ask != MessageBoxResult.Yes) return;
+                {
+                    var ask = MessageBox.Show("Na pewno chcesz trwale usunąć konto?",
+                                              "Usuń konto", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (ask != MessageBoxResult.Yes) return;
 
-            var ok = UserService.DeleteAccount(_userId);
-            if (!ok)
-            {
-                MessageBox.Show("Nie udało się usunąć konta.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+                    var ok = UserService.DeleteAccount(_userId);
+                    if (!ok)
+                    {
+                        MessageBox.Show("Nie udało się usunąć konta.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
 
-            var auth = new AuthWindow();
-            var vm = (AuthViewModel)auth.DataContext;
-            vm.ShowAccountDeletedInfo();
+                    var auth = new AuthWindow();
+                    var vm = (AuthViewModel)auth.DataContext;
+                    vm.ShowAccountDeletedInfo();
 
-            Application.Current.MainWindow = auth;
-            auth.Show();
+                    Application.Current.MainWindow = auth;
+                    auth.Show();
 
-            if (Owner != null) Owner.Close();
-            Close();
-        }
+                    if (Owner != null) Owner.Close();
+                    Close();
+                }
 
         private void Logout_Click(object sender, RoutedEventArgs e)
         {

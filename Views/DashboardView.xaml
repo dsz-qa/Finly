@@ -24,6 +24,13 @@
             <TextBlock x:Name="EntryCountText" Margin="5,0,20,0"/>
             <TextBlock Text="Średnia dzienna: " FontWeight="Bold"/>
             <TextBlock x:Name="DailyAverageText" Margin="5,0,0,0"/>
+            <TextBlock Width="30"/>
+            <TextBlock Text="Średnia miesięczna:" FontWeight="Bold"/>
+            <TextBlock x:Name="MonthlyAverageText" Margin="5,0,40,0"/>
+            <TextBlock Width="30"/>
+            <TextBlock x:Name="NajdrozszyWydatekText" FontWeight="Bold"/>
+            <TextBlock Width="20"/>
+            <TextBlock x:Name="NajdrozszaKategoriaText" FontWeight="Bold"  Margin="0,0,20,0"/>
         </StackPanel>
 
         <!-- Filtry -->

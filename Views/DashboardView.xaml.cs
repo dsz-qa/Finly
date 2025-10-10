@@ -168,11 +168,28 @@ WHERE e.UserId = @userId;";
                 var days = (_expenses.Max(e => e.Date) - _expenses.Min(e => e.Date)).TotalDays + 1;
                 var average = _expenses.Sum(e => e.Amount) / days;
                 DailyAverageText.Text = $"{average:0.00} zł";
+                var firstDate = _expenses.Min(e => e.Date);
+                var lastDate = _expenses.Max(e => e.Date);
+
+                int monthCount = ((lastDate.Year - firstDate.Year) * 12) + lastDate.Month - firstDate.Month + 1;
+                var monthlyAverage = _expenses.Sum(e => e.Amount) / monthCount;
+                MonthlyAverageText.Text = $"{monthlyAverage:0.00} zł";
             }
             else
             {
                 DailyAverageText.Text = "0 zł";
+                MonthlyAverageText.Text = "0 zł";
             }
+
+            var najdrozszyWydatek = _expenses.OrderByDescending(e => e.Amount).FirstOrDefault();
+            var najdrozszaKategoria = _expenses
+                .GroupBy(e => e.Category)
+                .Select(g => new { Kategoria = g.Key, Suma = g.Sum(e => e.Amount) })
+                .OrderByDescending(x => x.Suma)
+                .FirstOrDefault();
+
+            NajdrozszyWydatekText.Text = $"Najdroższy: {najdrozszyWydatek?.Amount:0.00} zł – {najdrozszyWydatek?.Category}";
+            NajdrozszaKategoriaText.Text = $"Kategoria: {najdrozszaKategoria?.Kategoria} ({najdrozszaKategoria?.Suma:0.00} zł)";
         }
 
         private void LoadCategories()

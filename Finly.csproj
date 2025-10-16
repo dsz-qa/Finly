@@ -11,22 +11,22 @@
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
-<ItemGroup>
-  <!-- Wykresy -->
-  <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.0" />
+	<ItemGroup>
+		<!-- LiveChartsCore v2 (WPF + Skia) -->
+		<PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.0-rc6.1" />
 
-  <!-- SQLite provider zgodnie z ustaleniami -->
-  <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
+		<!-- SQLite -->
+		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
 
-  <!-- PDF: nowocześnie i bez ostrzeżeń -->
-  <PackageReference Include="QuestPDF" Version="2024.5.0" />
+		<!-- PDF – zostajemy przy QuestPDF -->
+		<PackageReference Include="QuestPDF" Version="2024.5.0" />
 
-  <!-- Bezpieczeństwo: bcrypt do haseł -->
-  <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
-</ItemGroup>
+		<!-- Hash haseł -->
+		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+	</ItemGroup>
 
 
-  <ItemGroup>
+	<ItemGroup>
     <Folder Include="Styles\" />
     <Folder Include="Themes\" />
   </ItemGroup>

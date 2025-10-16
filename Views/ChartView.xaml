@@ -1,7 +1,7 @@
 ﻿<Window x:Class="Finly.Views.ChartView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+        xmlns:lvc="http://livecharts.com"
         Title="Wykres wydatków" Width="1200" Height="760"
         WindowStartupLocation="CenterOwner">
     <Grid Background="{DynamicResource App.Background}" Margin="20">
@@ -16,41 +16,46 @@
             <UniformGrid Rows="1" Columns="7" Margin="0" HorizontalAlignment="Stretch">
                 <StackPanel>
                     <TextBlock Text="Sortuj" Style="{StaticResource Caption}"/>
-                    <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}"/>
+                    <ComboBox x:Name="SortComboBox" SelectionChanged="SortComboBox_SelectionChanged">
+                        <ComboBoxItem Content="Kwota rosnąco"/>
+                        <ComboBoxItem Content="Kwota malejąco"/>
+                        <ComboBoxItem Content="Data rosnąco"/>
+                        <ComboBoxItem Content="Data malejąco"/>
+                    </ComboBox>
                 </StackPanel>
 
                 <StackPanel>
                     <TextBlock Text="Sortowanie wg daty" Style="{StaticResource Caption}"/>
-                    <ComboBox ItemsSource="{Binding DateSortOptions}" SelectedItem="{Binding SelectedDateSort}"/>
+                    <TextBlock Text=" "/>
                 </StackPanel>
 
                 <StackPanel>
                     <TextBlock Text="Od" Style="{StaticResource Caption}"/>
-                    <DatePicker SelectedDate="{Binding FromDate}" />
+                    <DatePicker x:Name="FromDatePicker"/>
                 </StackPanel>
 
                 <StackPanel>
                     <TextBlock Text="Do" Style="{StaticResource Caption}"/>
-                    <DatePicker SelectedDate="{Binding ToDate}" />
+                    <DatePicker x:Name="ToDatePicker"/>
                 </StackPanel>
 
                 <StackPanel>
                     <TextBlock Text="Kategoria" Style="{StaticResource Caption}"/>
-                    <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}" />
+                    <ComboBox />
                 </StackPanel>
 
                 <StackPanel>
                     <TextBlock Text="Minimalna kwota" Style="{StaticResource Caption}"/>
-                    <TextBox Text="{Binding MinAmount}" />
+                    <TextBox />
                 </StackPanel>
 
                 <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                    <Button Content="Filtruj" Command="{Binding ApplyFilterCommand}" />
+                    <Button Content="Filtruj" Click="FilterButton_Click" />
                 </StackPanel>
             </UniformGrid>
         </Border>
 
-        <!-- WYKRES: kategorie (np. PieSeries) -->
+        <!-- WYKRES: kategorie -->
         <Border Grid.Row="1" Style="{StaticResource SurfaceCard}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -59,14 +64,13 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="Wydatki wg kategorii" Style="{StaticResource CardHeader}"/>
-                <lvc:PieChart Grid.Row="1"
-                      Series="{Binding SeriesByCategory}"
+                <lvc:PieChart x:Name="pieChart" Grid.Row="1"
                       LegendPosition="Right"
                       DataTooltip="{x:Null}" />
             </Grid>
         </Border>
 
-        <!-- WYKRES: w czasie (np. Column/Line) -->
+        <!-- WYKRES: w czasie -->
         <Border Grid.Row="2" Style="{StaticResource SurfaceCard}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -75,28 +79,15 @@
                 </Grid.RowDefinitions>
 
                 <TextBlock Text="Wydatki wg daty" Style="{StaticResource CardHeader}"/>
-                <TextBlock Text="Wydatki wg daty" Style="{StaticResource CardHeader}"/>
 
-                <TextBlock Text="Wydatki wg daty" Style="{StaticResource CardHeader}"/>
-
-                <lvc:CartesianChart Grid.Row="1"
-                    Series="{Binding SeriesByDate}"
-                    DrawMarginFrame="{x:Null}">
-                    <!-- OŚ X -->
+                <lvc:CartesianChart x:Name="lineChart" Grid.Row="1" DrawMarginFrame="{x:Null}">
                     <lvc:CartesianChart.XAxes>
-                        <lvc:Axis Labels="{Binding XLabels}"
-              LabelsRotation="0"
-              TextSize="14" />
+                        <lvc:Axis LabelsRotation="0" TextSize="14" />
                     </lvc:CartesianChart.XAxes>
-
-                    <!-- OŚ Y -->
                     <lvc:CartesianChart.YAxes>
-                        <lvc:Axis Labeler="{Binding CurrencyLabeler}"
-              TextSize="14" />
+                        <lvc:Axis TextSize="14" />
                     </lvc:CartesianChart.YAxes>
                 </lvc:CartesianChart>
-
-
             </Grid>
         </Border>
     </Grid>

@@ -13,10 +13,13 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using LiveChartsCore.SkiaSharpView.WPF;
 using SkiaSharp;
 
-using PdfSharp.Drawing;
-
 using Finly.Models;
 using Finly.Services;
+
+// QuestPDF
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace Finly.Views
 {
@@ -51,23 +54,33 @@ namespace Finly.Views
                     (!end.HasValue || e.Date <= end.Value))
                 .ToList();
 
-            LoadPieChart(filtered);
-            LoadLineChart(filtered);
+            expenses = filtered
+                .Select(e => new Expense
+                {
+                    Id = e.Id,
+                    Amount = e.Amount,
+                    CategoryId = e.CategoryId,
+                    Category = e.CategoryName ?? "",
+                    UserId = e.UserId,
+                    Date = e.Date,
+                    Description = e.Description ?? string.Empty
+                }).ToList();
 
-            // lista do sortowania w comboboxach
-            expenses = filtered.Select(e => new Expense
+            var display = expenses.Select(x => new ExpenseDisplayModel
             {
-                Id = e.Id,
-                Amount = e.Amount,
-                Category = e.CategoryName,
-                Date = e.Date,
-                Description = e.Description ?? string.Empty
+                Amount = x.Amount,
+                CategoryName = x.Category,
+                Date = x.Date,
+                Description = x.Description
             }).ToList();
+
+            LoadPieChart(display);
+            LoadLineChart(display);
         }
 
-        private void LoadPieChart(List<ExpenseDisplayModel> expenses)
+        private void LoadPieChart(List<ExpenseDisplayModel> data)
         {
-            var grouped = expenses
+            var grouped = data
                 .GroupBy(e => e.CategoryName)
                 .Select(g => new PieSeries<decimal>
                 {
@@ -82,25 +95,26 @@ namespace Finly.Views
             pieChart.Series = grouped;
         }
 
-        private void LoadLineChart(List<ExpenseDisplayModel> expenses)
+        private void LoadLineChart(List<ExpenseDisplayModel> data)
         {
-            var grouped = expenses
+            var grouped = data
                 .GroupBy(e => e.Date.Date)
                 .OrderBy(g => g.Key)
                 .Select(g => new
                 {
                     Date = g.Key,
-                    Amount = g.Sum(e => e.Amount)
+                    Sum = g.Sum(x => x.Amount)
                 })
                 .ToList();
 
             lineChart.Series = new ISeries[]
             {
-                new LineSeries<decimal>
+                new LineSeries<double>
                 {
-                    Values = grouped.Select(g => (decimal)g.Amount).ToArray(),
-                    Fill = null,
-                    GeometrySize = 10
+                    Values = grouped.Select(g => g.Sum).ToArray(),
+                    GeometrySize = 8,
+                    Stroke = new SolidColorPaint(new SKColor(30,144,255), 3),
+                    Fill = null
                 }
             };
 
@@ -108,9 +122,9 @@ namespace Finly.Views
             {
                 new Axis
                 {
-                    Labels = grouped.Select(g => g.Date.ToString("dd.MM.yyyy")).ToArray(),
-                    LabelsRotation = 45,
-                    Name = "Data"
+                    Labels = grouped.Select(g => g.Date.ToString("dd.MM")).ToArray(),
+                    LabelsRotation = 0,
+                    TextSize = 14
                 }
             };
 
@@ -118,174 +132,90 @@ namespace Finly.Views
             {
                 new Axis
                 {
-                    Name = "Kwota [z³]",
-                    LabelsPaint = new SolidColorPaint(SKColors.Black),
-                    Labeler = value => $"{value / 1000:N1} tys."
+                    Labeler = value => value.ToString("N0") + " z³",
+                    TextSize = 14
                 }
             };
-        }
-
-        private void ExportChartsToPng_Click(object sender, RoutedEventArgs e)
-        {
-            var saveDialogPie = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PNG Image|*.png",
-                FileName = "WykresKolowy"
-            };
-            if (saveDialogPie.ShowDialog() != true) return;
-
-            var saveDialogLine = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PNG Image|*.png",
-                FileName = "WykresLiniowy"
-            };
-            if (saveDialogLine.ShowDialog() != true) return;
-
-            // Zapis PieChart
-            var pieBitmap = new RenderTargetBitmap(
-                Math.Max(1, (int)pieChart.ActualWidth),
-                Math.Max(1, (int)pieChart.ActualHeight),
-                96, 96, PixelFormats.Pbgra32);
-            pieBitmap.Render(pieChart);
-            var pieEncoder = new PngBitmapEncoder();
-            pieEncoder.Frames.Add(BitmapFrame.Create(pieBitmap));
-            using (var stream = File.Create(saveDialogPie.FileName))
-                pieEncoder.Save(stream);
-
-            // Zapis LineChart
-            var lineBitmap = new RenderTargetBitmap(
-                Math.Max(1, (int)lineChart.ActualWidth),
-                Math.Max(1, (int)lineChart.ActualHeight),
-                96, 96, PixelFormats.Pbgra32);
-            lineBitmap.Render(lineChart);
-            var lineEncoder = new PngBitmapEncoder();
-            lineEncoder.Frames.Add(BitmapFrame.Create(lineBitmap));
-            using (var stream = File.Create(saveDialogLine.FileName))
-                lineEncoder.Save(stream);
-
-            MessageBox.Show("Wykresy zapisano jako pliki PNG.", "Sukces",
-                MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        private void ExportChartToPdf_Click(object sender, RoutedEventArgs e)
-        {
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-
-            string pieChartPath = Path.GetTempFileName() + "_pie.png";
-            string lineChartPath = Path.GetTempFileName() + "_line.png";
-
-            // Render PieChart
-            var pieBitmap = new RenderTargetBitmap(
-                Math.Max(1, (int)pieChart.ActualWidth),
-                Math.Max(1, (int)pieChart.ActualHeight),
-                96, 96, PixelFormats.Pbgra32);
-            pieBitmap.Render(pieChart);
-            var pieEncoder = new PngBitmapEncoder();
-            pieEncoder.Frames.Add(BitmapFrame.Create(pieBitmap));
-            using (var stream = File.Create(pieChartPath)) pieEncoder.Save(stream);
-
-            // Render LineChart
-            var lineBitmap = new RenderTargetBitmap(
-                Math.Max(1, (int)lineChart.ActualWidth),
-                Math.Max(1, (int)lineChart.ActualHeight),
-                96, 96, PixelFormats.Pbgra32);
-            lineBitmap.Render(lineChart);
-            var lineEncoder = new PngBitmapEncoder();
-            lineEncoder.Frames.Add(BitmapFrame.Create(lineBitmap));
-            using (var stream = File.Create(lineChartPath)) lineEncoder.Save(stream);
-
-            var saveDialog = new Microsoft.Win32.SaveFileDialog
-            {
-                Filter = "PDF Document|*.pdf",
-                FileName = "wykresy_wydatkow"
-            };
-            if (saveDialog.ShowDialog() == true)
-            {
-                var doc = new PdfSharp.Pdf.PdfDocument();
-                var page = doc.AddPage();
-
-                using (var gfx = XGraphics.FromPdfPage(page))
-                using (var imgPie = XImage.FromFile(pieChartPath))
-                using (var imgLine = XImage.FromFile(lineChartPath))
-                {
-                    double margin = 20;
-                    double availableWidth = page.Width - 2 * margin;
-                    double halfHeight = (page.Height - 3 * margin) / 2;
-
-                    gfx.DrawImage(imgPie, margin, margin, availableWidth, halfHeight);
-                    gfx.DrawImage(imgLine, margin, margin + halfHeight + margin, availableWidth, halfHeight);
-                }
-
-                doc.Save(saveDialog.FileName);
-                MessageBox.Show("Wykresy zosta³y zapisane jako PDF.", "Sukces",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-
-            try { File.Delete(pieChartPath); } catch { /* ignore */ }
-            try { File.Delete(lineChartPath); } catch { /* ignore */ }
         }
 
         private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var selected = (SortComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            if (expenses == null || expenses.Count == 0) return;
 
-            if (expenses == null || expenses.Count == 0)
+            IEnumerable<Expense> sorted = expenses;
+
+            switch (selected)
             {
-                MessageBox.Show("Brak danych do sortowania.", "B³¹d",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                case "Kwota rosn¹co": sorted = expenses.OrderBy(x => x.Amount); break;
+                case "Kwota malej¹co": sorted = expenses.OrderByDescending(x => x.Amount); break;
+                case "Data rosn¹co": sorted = expenses.OrderBy(x => x.Date); break;
+                case "Data malej¹co": sorted = expenses.OrderByDescending(x => x.Date); break;
             }
 
-            var sortedExpenses = expenses;
-
-            if (selected == "Kategoria A-Z")
-                sortedExpenses = expenses.OrderBy(x => x.Category).ToList();
-            else if (selected == "Kategoria Z-A")
-                sortedExpenses = expenses.OrderByDescending(x => x.Category).ToList();
-            else if (selected == "Suma rosn¹co")
-                sortedExpenses = expenses.OrderBy(x => x.Amount).ToList();
-            else if (selected == "Suma malej¹co")
-                sortedExpenses = expenses.OrderByDescending(x => x.Amount).ToList();
-
-            var displayExpenses = sortedExpenses.Select(x => new ExpenseDisplayModel
+            var display = sorted.Select(x => new ExpenseDisplayModel
             {
-                Id = x.Id,
                 Amount = x.Amount,
-                CategoryName = x.Category,
                 Date = x.Date,
+                CategoryName = x.Category,
                 Description = x.Description
             }).ToList();
 
-            LoadPieChart(displayExpenses);
+            LoadLineChart(display);
         }
 
-        private void DateSortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        // ====== Eksport do PNG + PDF (QuestPDF) ======
+        private void ExportChartsToPdf()
         {
-            var selected = (DateSortComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            string pieChartPath = Path.Combine(Path.GetTempPath(), $"finly_pie_{Guid.NewGuid():N}.png");
+            string lineChartPath = Path.Combine(Path.GetTempPath(), $"finly_line_{Guid.NewGuid():N}.png");
 
-            if (expenses == null || expenses.Count == 0)
+            SaveElementAsPng(pieChart, pieChartPath);
+            SaveElementAsPng(lineChart, lineChartPath);
+
+            var saveDialog = new Microsoft.Win32.SaveFileDialog
             {
-                MessageBox.Show("Brak danych do sortowania.", "B³¹d",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+                Filter = "PDF File|*.pdf",
+                FileName = "Wykresy"
+            };
+            if (saveDialog.ShowDialog() != true) return;
 
-            var sortedExpenses = expenses;
+            var pieBytes = File.ReadAllBytes(pieChartPath);
+            var lineBytes = File.ReadAllBytes(lineChartPath);
 
-            if (selected == "Data rosn¹co")
-                sortedExpenses = expenses.OrderBy(x => x.Date).ToList();
-            else if (selected == "Data malej¹co")
-                sortedExpenses = expenses.OrderByDescending(x => x.Date).ToList();
-
-            var convertedExpenses = sortedExpenses.Select(x => new ExpenseDisplayModel
+            Document.Create(container =>
             {
-                Amount = x.Amount,
-                Date = x.Date,
-                CategoryName = x.Category,
-                Description = x.Description
-            }).ToList();
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(20);
+                    page.Content()
+                        .Column(col =>
+                        {
+                            col.Spacing(15);
+                            col.Item().Image(pieBytes);
+                            col.Item().Image(lineBytes);
+                        });
+                });
+            })
+            .GeneratePdf(saveDialog.FileName);
 
-            LoadLineChart(convertedExpenses);
+            try { File.Delete(pieChartPath); } catch { }
+            try { File.Delete(lineChartPath); } catch { }
+        }
+
+        private static void SaveElementAsPng(FrameworkElement element, string path)
+        {
+            var rtb = new RenderTargetBitmap(
+                Math.Max(1, (int)element.ActualWidth),
+                Math.Max(1, (int)element.ActualHeight),
+                96, 96, PixelFormats.Pbgra32);
+
+            rtb.Render(element);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(rtb));
+            using var fs = File.Create(path);
+            encoder.Save(fs);
         }
     }
 }

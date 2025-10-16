@@ -91,50 +91,50 @@
             <!-- CHECKLISTA wymagań hasła -->
             <StackPanel Margin="0,0,0,6">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PwdHasMinLen,     Converter={StaticResource BoolToSymbol}}"
-                               Foreground="{Binding PwdHasMinLen, Converter={StaticResource BoolToBrush}}"
+                    <TextBlock Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
+                               Background="{Binding IsValid, Converter={StaticResource BoolToBrush}}"
                                FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="co najmniej 8 znaków"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PwdHasLower,     Converter={StaticResource BoolToSymbol}}"
-                               Foreground="{Binding PwdHasLower, Converter={StaticResource BoolToBrush}}"
+                    <TextBlock Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
+                               Background="{Binding IsValid, Converter={StaticResource BoolToBrush}}"
                                FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="mała litera"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PwdHasUpper,     Converter={StaticResource BoolToSymbol}}"
-                               Foreground="{Binding PwdHasUpper, Converter={StaticResource BoolToBrush}}"
+                    <TextBlock Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
+                               Background="{Binding IsValid, Converter={StaticResource BoolToBrush}}" 
                                FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="wielka litera"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PwdHasDigit,     Converter={StaticResource BoolToSymbol}}"
-                               Foreground="{Binding PwdHasDigit, Converter={StaticResource BoolToBrush}}"
+                    <TextBlock Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
+                               Background="{Binding IsValid, Converter={StaticResource BoolToBrush}}"
                                FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="cyfra"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PwdHasSpecial,     Converter={StaticResource BoolToSymbol}}"
-                               Foreground="{Binding PwdHasSpecial, Converter={StaticResource BoolToBrush}}"
+                    <TextBlock Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
+                               Background="{Binding IsValid, Converter={StaticResource BoolToBrush}}"
                                FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="znak specjalny (np. !@#$%)"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PwdNoSpaces,     Converter={StaticResource BoolToSymbol}}"
-                               Foreground="{Binding PwdNoSpaces, Converter={StaticResource BoolToBrush}}"
+                    <TextBlock Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
+                               Background="{Binding IsValid, Converter={StaticResource BoolToBrush}}"
                                FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="bez spacji"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding PwdMatchesConfirm,     Converter={StaticResource BoolToSymbol}}"
-                               Foreground="{Binding PwdMatchesConfirm, Converter={StaticResource BoolToBrush}}"
+                    <TextBlock Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
+                               Background="{Binding IsValid, Converter={StaticResource BoolToBrush}}"
                                FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="powtórzone hasło takie samo"/>
                 </StackPanel>

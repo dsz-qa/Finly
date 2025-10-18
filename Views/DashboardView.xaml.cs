@@ -117,9 +117,23 @@ namespace Finly.Views
 
         private void ShowChart_Click(object sender, RoutedEventArgs e)
         {
-            var chart = new ChartView(_userId);
-            chart.ShowDialog();
+            // 1) zwykła ścieżka – jeśli DashboardView jest hostowany w Shellu
+            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
+            if (shell != null)
+            {
+                shell.NavigateTo("Charts");
+                return;
+            }
+
+            // 2) fallback – gdyby ktoś odpalił stare okno ręcznie
+            var newShell = new Finly.Shell.ShellWindow();
+            Application.Current.MainWindow = newShell;
+            newShell.Show();
+            newShell.NavigateTo("Charts");
+
+            this.Close(); // zamknij stare okno
         }
+
 
         private void LoadExpenses()
         {
@@ -189,11 +203,23 @@ WHERE e.UserId = @userId;";
 
         private void AddExpenseButton_Click(object sender, RoutedEventArgs e)
         {
-            var addView = new AddExpenseView(_userId);
-            addView.ShowDialog();
-            LoadExpenses();
-            LoadCategories();
+            // 1) jeśli ten Dashboard jest w Shellu – po prostu nawiguj
+            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
+            if (shell != null)
+            {
+                shell.NavigateTo("AddExpense");
+                return;
+            }
+
+            // 2) fallback: gdyby ktoś odpalił stare okno bez Shella – uruchom Shell i przejdź do AddExpense
+            var newShell = new Finly.Shell.ShellWindow();
+            Application.Current.MainWindow = newShell;
+            newShell.Show();
+            newShell.NavigateTo("AddExpense");
+
+            this.Close(); // zamknij stare okno
         }
+
 
         private void ExpenseListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
@@ -228,11 +254,23 @@ WHERE e.UserId = @userId;";
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            var addWindow = new AddExpenseView(_userId);
-            addWindow.ShowDialog();
-            LoadExpenses();
-            LoadCategories();
+            // jeśli ten Dashboard jest hostowany w Shellu:
+            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
+            if (shell != null)
+            {
+                shell.NavigateTo("AddExpense");
+                return;
+            }
+
+            // fallback: gdyby ktoś uruchomił stare okno bez Shella
+            var newShell = new Finly.Shell.ShellWindow();
+            Application.Current.MainWindow = newShell;
+            newShell.Show();
+            newShell.NavigateTo("AddExpense");
+
+            this.Close(); // zamknij stare okno
         }
+
 
         private void EditExpense_Click(object sender, RoutedEventArgs e)
         {

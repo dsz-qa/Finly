@@ -1,5 +1,5 @@
 ﻿using System.Windows;
-using Finly.Views;
+using Finly.Views; // jeśli AuthWindow jest w Finly.Views
 
 namespace Finly
 {
@@ -8,16 +8,12 @@ namespace Finly
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
-
-            var auth = new AuthWindow();
-
-            // TWARDY fullscreen na wypadek, gdyby styl nie zadziałał:
-            auth.WindowState = WindowState.Maximized;
-            auth.ResizeMode = ResizeMode.CanMinimize;
-
-            MainWindow = auth;
+            var auth = new Finly.Views.AuthWindow();
+            Current.MainWindow = auth;
             auth.Show();
         }
+
     }
 }
+
 

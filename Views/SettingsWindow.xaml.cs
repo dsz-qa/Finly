@@ -1,6 +1,10 @@
-﻿using System.Windows;
+﻿using System.Linq;
+using System.Windows;
+
 using Finly.Services;
-using Finly.ViewModels;
+using Finly.ViewModels;   // AuthViewModel
+using Finly.Shell;       // ShellWindow
+using Finly.Views;
 
 
 namespace Finly.Views
@@ -28,40 +32,57 @@ namespace Finly.Views
             => ThemeService.Apply(AppTheme.Dark);
 
         private void DeleteAccount_Click(object sender, RoutedEventArgs e)
-                {
-                    var ask = MessageBox.Show("Na pewno chcesz trwale usunąć konto?",
-                                              "Usuń konto", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (ask != MessageBoxResult.Yes) return;
-
-                    var ok = UserService.DeleteAccount(_userId);
-                    if (!ok)
-                    {
-                        MessageBox.Show("Nie udało się usunąć konta.", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-
-                    var auth = new AuthWindow();
-                    var vm = (AuthViewModel)auth.DataContext;
-                    vm.ShowAccountDeletedInfo();
-
-                    Application.Current.MainWindow = auth;
-                    auth.Show();
-
-                    if (Owner != null) Owner.Close();
-                    Close();
-                }
-
-        private void Logout_Click(object sender, RoutedEventArgs e)
         {
+            var ask = MessageBox.Show("Na pewno chcesz trwale usunąć konto?",
+                                      "Usuń konto", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (ask != MessageBoxResult.Yes) return;
+
+            var ok = UserService.DeleteAccount(_userId);
+            if (!ok)
+            {
+                MessageBox.Show("Nie udało się usunąć konta.", "Błąd",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             var auth = new AuthWindow();
-            var vm = (AuthViewModel)auth.DataContext;
-            vm.ShowLogoutInfo();
+            if (auth.DataContext is AuthViewModel vm)
+                vm.ShowAccountDeletedInfo();
 
             Application.Current.MainWindow = auth;
             auth.Show();
 
-            if (Owner != null) Owner.Close();
+            // ZAMKNIJ SHELLA
+            Application.Current.Windows
+                .OfType<ShellWindow>()
+                .FirstOrDefault()
+                ?.Close();
+
+            try { Owner?.Close(); } catch { /* ignore */ }
             Close();
         }
-    }
+
+        private void Logout_Click(object sender, RoutedEventArgs e)
+                {
+                    // 1) Przygotuj ekran logowania z informacją
+                    var auth = new AuthWindow();
+                    if (auth.DataContext is AuthViewModel vm)
+                        vm.ShowLogoutInfo();
+
+                    // 2) Ustaw jako główne okno i pokaż
+                    Application.Current.MainWindow = auth;
+                    auth.Show();
+
+                    // 3) Zamknij Shella, jeśli jest otwarty
+                    Application.Current.Windows
+                        .OfType<ShellWindow>()
+                        .FirstOrDefault()
+                        ?.Close();
+
+                    // 4) Zamknij okno ustawień i ewentualnego właściciela
+                    try { Owner?.Close(); } catch { /* ignore */ }
+                    Close();
+                }
+
+}
 }

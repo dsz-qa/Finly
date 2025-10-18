@@ -7,6 +7,8 @@ using System.Windows.Input;
 using Finly.Helpers;   // RelayCommand
 using Finly.Services;  // UserService
 using Finly.Views;     // DashboardView, LoginView
+using Finly.Shell;          // ShellWindow
+
 
 namespace Finly.ViewModels
 {
@@ -78,14 +80,18 @@ namespace Finly.ViewModels
                     return;
                 }
 
-                var dashboard = new DashboardView(userId);
-                dashboard.Show();
+                UserService.CurrentUserId = userId;
+                var shell = new ShellWindow();
+                Application.Current.MainWindow = shell;
+                shell.Show();
 
-                // Zamknij okno logowania
+                // zamykamy okno logowania:
                 Application.Current.Windows
-                    .OfType<LoginView>()
+                    .OfType<Finly.Views.AuthWindow>()
                     .FirstOrDefault()
                     ?.Close();
+
+
             }
             catch (Exception ex)
             {

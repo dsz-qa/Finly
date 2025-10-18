@@ -2,6 +2,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Finly.Services;
+using Finly.Shell;
 
 namespace Finly.Views
 {
@@ -26,23 +28,37 @@ namespace Finly.Views
         private void SwitchToLogin_Click(object sender, RoutedEventArgs e) => VM.SwitchToLogin();
 
         // ====== Logowanie ======
+
         private void LoginButton_Click(object sender, RoutedEventArgs e)
         {
+            // weź hasło z pola maskowanego lub jawnego (jak dotąd)
             var pwd = PwdLoginText.Visibility == Visibility.Visible ? PwdLoginText.Text : PwdLogin.Password;
+
+            // VM.Login powinno zwrócić true i wypełnić VM.LoggedInUserId
             if (VM.Login(pwd))
             {
-                var dash = new DashboardView(VM.LoggedInUserId)
-                {
-                    WindowState = WindowState.Maximized,
-                    ResizeMode = ResizeMode.CanResize
-                };
-                dash.Show();
-                Close();
+                // jeżeli VM nie ustawia LoggedInUserId, pobierz z bazy:
+                var userId = VM.LoggedInUserId != 0
+                    ? VM.LoggedInUserId
+                    : UserService.GetUserIdByUsername(VM.Username);
+
+                OnLoginSuccess(userId);
             }
             else
             {
-                MessageBox.Show("Błędny login lub hasło.", "Logowanie", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Błędny login lub hasło.", "Logowanie",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+        private void OnLoginSuccess(int userId)
+        {
+            UserService.CurrentUserId = userId;   // zapamiętaj kto zalogowany
+
+            var shell = new ShellWindow();         // start nowego layoutu
+            Application.Current.MainWindow = shell;
+            shell.Show();
+
+            this.Close();                          // zamknij ekran logowania
         }
 
 

@@ -7,6 +7,9 @@ namespace Finly.Services
 {
     public static class UserService
     {
+
+        public static int CurrentUserId { get; set; } = 0;
+        public static int GetCurrentUserId() => CurrentUserId;
         // ========== PUBLIC API ==========
 
         public static bool Register(string username, string password)

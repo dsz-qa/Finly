@@ -9,72 +9,68 @@ using System.Data.SQLite;
 using Finly.Models;
 using Finly.Services;
 using Finly.ViewModels;
+// jeśli AuthWindow / EditExpenseView / AddExpenseView są w Finly.Views:
+using Finly.Views;
 
-namespace Finly.Views
+namespace Finly.Pages
 {
-    public partial class DashboardView : Window
+    public partial class DashboardPage : UserControl
     {
         private readonly int _userId;
         private List<ExpenseDisplayModel> _expenses = new();
 
-        // --- Tryb fullscreen (F11) ---
-        private WindowStyle _prevStyle;
-        private ResizeMode _prevResize;
-        private WindowState _prevState;
+        /// <summary>
+        /// Konstruktor bezparametrowy – próbuje pobrać bieżącego użytkownika z serwisu.
+        /// Jeśli nie masz takiej metody w UserService, użyj drugiego konstruktora (z userId)
+        /// albo podmień to na własne źródło.
+        /// </summary>
+        public DashboardPage()
+            : this(GetCurrentUserIdSafe())
+        {
+        }
 
-        public DashboardView(int userId)
+        /// <summary>
+        /// Konstruktor z userId (możesz go używać kiedy ShellWindow będzie przekazywał id).
+        /// </summary>
+        public DashboardPage(int userId)
         {
             InitializeComponent();
 
-            // twarde ustawienia (gdyby styl globalny był nadpisany)
-            WindowState = WindowState.Maximized;
-            ResizeMode = ResizeMode.CanResize;
-
             _userId = userId;
+
+            // Ładujemy dane po wejściu na stronę
             LoadExpenses();
             LoadCategories();
         }
 
-        // uruchom zawsze w pełnym ekranie
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        // --- Pomocnicze: próba pobrania bieżącego userId z serwisu ---
+        private static int GetCurrentUserIdSafe()
         {
-            WindowState = WindowState.Maximized;
-            ResizeMode = ResizeMode.CanResize;
-            Top = 0;
-            Left = 0;
+            try
+            {
+                // Jeśli masz taką metodę – super. Jeśli nie, zwróci 0 i dane się nie wczytają, wtedy użyj konstruktora z parametrem.
+                return UserService.GetCurrentUserId();
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
-        // skróty: F11 ↔ borderless, Esc ↔ zamknij
-        private void Window_KeyDown(object sender, KeyEventArgs e)
+        // ================== AKCJE Z PRZYCISKÓW DOLNEGO PASKA ==================
+
+        private void AddExpenseButton_Click(object sender, RoutedEventArgs e)
         {
-            if (e.Key == Key.F11) ToggleFullscreen();
-            if (e.Key == Key.Escape) Close();
+            // Bez nowych okien: przełączamy prawy panel w ShellWindow na stronę "AddExpense"
+            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
+            shell?.NavigateTo("AddExpense");
         }
 
-        private void EnterFullscreen()
+        private void ShowChart_Click(object sender, RoutedEventArgs e)
         {
-            _prevStyle = WindowStyle;
-            _prevResize = ResizeMode;
-            _prevState = WindowState;
-
-            WindowStyle = WindowStyle.None;
-            ResizeMode = ResizeMode.NoResize;
-            WindowState = WindowState.Maximized;
-        }
-
-        private void ExitFullscreen()
-        {
-            WindowStyle = _prevStyle;
-            ResizeMode = _prevResize;
-            WindowState = _prevState == WindowState.Minimized ? WindowState.Normal : _prevState;
-        }
-
-        private void ToggleFullscreen()
-        {
-            if (WindowStyle == WindowStyle.None && WindowState == WindowState.Maximized)
-                ExitFullscreen();
-            else
-                EnterFullscreen();
+            // Bez nowych okien: przełączenie na stronę "Charts"
+            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
+            shell?.NavigateTo("Charts");
         }
 
         private void DeleteAccount_Click(object sender, RoutedEventArgs e)
@@ -98,14 +94,17 @@ namespace Finly.Views
                     return;
                 }
 
-                // Powrót do logowania z banerem „konto usunięte”
+                // Powrót do logowania – tu akurat może zostać osobne okno (logowanie/rejestracja)
                 var auth = new AuthWindow();
                 var vm = (AuthViewModel)auth.DataContext;
                 vm.ShowAccountDeletedInfo();
 
+                // Zamknij shella i pokaż logowanie
+                var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
+                shell?.Close();
+
                 Application.Current.MainWindow = auth;
                 auth.Show();
-                Close();
             }
             catch (Exception ex)
             {
@@ -114,12 +113,21 @@ namespace Finly.Views
             }
         }
 
-
-        private void ShowChart_Click(object sender, RoutedEventArgs e)
+        private void LogoutButton_Click(object sender, RoutedEventArgs e)
         {
-            var chart = new ChartView(_userId);
-            chart.ShowDialog();
+            // Wylogowanie – wracamy do ekranu logowania
+            var auth = new AuthWindow();
+            var vm = (AuthViewModel)auth.DataContext;
+            vm.ShowLogoutInfo();
+
+            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
+            shell?.Close();
+
+            Application.Current.MainWindow = auth;
+            auth.Show();
         }
+
+        // ================== LISTA / FILTRY ==================
 
         private void LoadExpenses()
         {
@@ -187,31 +195,8 @@ WHERE e.UserId = @userId;";
             CategoryFilterComboBox.ItemsSource = categories;
         }
 
-        private void AddExpenseButton_Click(object sender, RoutedEventArgs e)
-        {
-            var addView = new AddExpenseView(_userId);
-            addView.ShowDialog();
-            LoadExpenses();
-            LoadCategories();
-        }
-
-        private void ExpenseListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (ExpenseListView.SelectedItem is ExpenseDisplayModel selectedExpense)
-            {
-                var fullExpense = DatabaseService.GetExpenseById(selectedExpense.Id);
-                if (fullExpense is null) return;
-
-                var editView = new EditExpenseView(fullExpense, _userId);
-                editView.ShowDialog();
-                LoadExpenses();
-                LoadCategories();
-            }
-        }
-
         private void FilterButton_Click(object sender, RoutedEventArgs e)
         {
-            // 1) non-null string (brak ostrzeżeń)
             var selectedCategory = (CategoryFilterComboBox.Text ?? string.Empty).Trim();
 
             DateTime? from = FromDatePicker.SelectedDate;
@@ -226,13 +211,7 @@ WHERE e.UserId = @userId;";
             ExpenseListView.ItemsSource = filtered;
         }
 
-        private void AddButton_Click(object sender, RoutedEventArgs e)
-        {
-            var addWindow = new AddExpenseView(_userId);
-            addWindow.ShowDialog();
-            LoadExpenses();
-            LoadCategories();
-        }
+        // ================== AKCJE NA WIERSZU ==================
 
         private void EditExpense_Click(object sender, RoutedEventArgs e)
         {
@@ -241,10 +220,11 @@ WHERE e.UserId = @userId;";
                 var expense = DatabaseService.GetExpenseById(id);
                 if (expense == null) return;
 
-                var editView = new EditExpenseView(expense, _userId) { Owner = this };
+                // TODO: docelowo chcemy to przenieść na stronę "AddExpense" w trybie edycji.
+                // Na teraz zostawię stare okno edycji, żebyś mogła normalnie działać:
+                var editView = new EditExpenseView(expense, _userId);
                 editView.ShowDialog();
 
-                // odśwież listę i podsumowania
                 LoadExpenses();
                 LoadCategories();
             }
@@ -259,8 +239,6 @@ WHERE e.UserId = @userId;";
                                              MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result != MessageBoxResult.Yes) return;
 
-                // załóżmy, że masz taką metodę w DatabaseService:
-                // DatabaseService.DeleteExpense(id);
                 DatabaseService.DeleteExpense(id);
 
                 LoadExpenses();
@@ -283,39 +261,19 @@ WHERE e.UserId = @userId;";
             }
         }
 
-        private void LogoutButton_Click(object sender, RoutedEventArgs e)
+        // (opcjonalnie) jeśli nadal masz podpięty double-click na liście
+        private void ExpenseListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            var auth = new AuthWindow();
-            var vm = (AuthViewModel)auth.DataContext;
-            vm.ShowLogoutInfo();
+            if (ExpenseListView.SelectedItem is ExpenseDisplayModel selectedExpense)
+            {
+                var fullExpense = DatabaseService.GetExpenseById(selectedExpense.Id);
+                if (fullExpense is null) return;
 
-            Application.Current.MainWindow = auth;
-            auth.Show();
-            Close();
-        }
-
-        // ================== NAWIGACJA – lewy pasek ==================
-        private void Nav_Home_Click(object sender, RoutedEventArgs e)
-        {
-            // np. focus na listę / reset filtrów – opcjonalnie
-            ExpenseListView?.Focus();
-        }
-
-        private void Nav_AddExpense_Click(object sender, RoutedEventArgs e)
-        {
-            AddExpenseButton_Click(sender, e); // używamy istniejącej logiki
-        }
-
-        private void Nav_Charts_Click(object sender, RoutedEventArgs e)
-        {
-            ShowChart_Click(sender, e);
-        }
-
-        private void OpenSettings_Click(object sender, RoutedEventArgs e)
-        {
-            var win = new SettingsWindow(_userId) { Owner = this };
-            win.ShowDialog();
-            // ThemeService działa globalnie – nie trzeba nic odświeżać
+                var editView = new EditExpenseView(fullExpense, _userId);
+                editView.ShowDialog();
+                LoadExpenses();
+                LoadCategories();
+            }
         }
     }
 }

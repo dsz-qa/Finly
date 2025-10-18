@@ -1,32 +1,28 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>Finly</RootNamespace>
-    <AssemblyName>Finly</AssemblyName>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+	<RootNamespace>Finly</RootNamespace>
+	<AssemblyName>Finly</AssemblyName>
+	<OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
     <Platforms>AnyCPU;x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
-	<ItemGroup>
-		<!-- LiveChartsCore v2 (WPF + Skia) -->
-		<PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.0-rc6.1" />
+  <ItemGroup>
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.0-beta.701" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.4" />
+    <PackageReference Include="PdfSharp" Version="1.50.5147" />
+    <PackageReference Include="SkiaSharp" Version="2.88.3" />
+    <PackageReference Include="SkiaSharp.Views" Version="2.88.3" />
+    <PackageReference Include="SkiaSharp.Views.WPF" Version="2.88.3" />
+    <PackageReference Include="System.Data.SQLite" Version="1.0.119" />
+  </ItemGroup>
 
-		<!-- SQLite -->
-		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
-
-		<!-- PDF – zostajemy przy QuestPDF -->
-		<PackageReference Include="QuestPDF" Version="2024.5.0" />
-
-		<!-- Hash haseł -->
-		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
-	</ItemGroup>
-
-
-	<ItemGroup>
+  <ItemGroup>
     <Folder Include="Styles\" />
     <Folder Include="Themes\" />
   </ItemGroup>

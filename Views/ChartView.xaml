@@ -1,94 +1,58 @@
 ﻿<Window x:Class="Finly.Views.ChartView"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:lvc="http://livecharts.com"
-        Title="Wykres wydatków" Width="1200" Height="760"
-        WindowStartupLocation="CenterOwner">
-    <Grid Background="{DynamicResource App.Background}" Margin="20">
+        xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+        Title="Wykres wydatków" Height="600" Width="850">
+
+    <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <!-- Pasek filtrów -->
             <RowDefinition Height="*"/>
-            <RowDefinition Height="*"/>
+            <!-- Wykresy -->
         </Grid.RowDefinitions>
 
-        <!-- FILTRY -->
-        <Border Style="{StaticResource SurfaceCard}" Padding="14">
-            <UniformGrid Rows="1" Columns="7" Margin="0" HorizontalAlignment="Stretch">
-                <StackPanel>
-                    <TextBlock Text="Sortuj" Style="{StaticResource Caption}"/>
-                    <ComboBox x:Name="SortComboBox" SelectionChanged="SortComboBox_SelectionChanged">
-                        <ComboBoxItem Content="Kwota rosnąco"/>
-                        <ComboBoxItem Content="Kwota malejąco"/>
-                        <ComboBoxItem Content="Data rosnąco"/>
-                        <ComboBoxItem Content="Data malejąco"/>
-                    </ComboBox>
-                </StackPanel>
+        <!-- Pasek filtrów u góry -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Top">
+            <TextBlock Text="Sortuj:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <ComboBox x:Name="SortComboBox" Width="150" SelectionChanged="SortComboBox_SelectionChanged" Margin="0,0,10,0">
+                <ComboBoxItem Content="Kategoria A-Z" />
+                <ComboBoxItem Content="Kategoria Z-A" />
+                <ComboBoxItem Content="Suma rosnąco" />
+                <ComboBoxItem Content="Suma malejąco" />
+            </ComboBox>
 
-                <StackPanel>
-                    <TextBlock Text="Sortowanie wg daty" Style="{StaticResource Caption}"/>
-                    <TextBlock Text=" "/>
-                </StackPanel>
+            <TextBlock Text="Sortowanie wg daty:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <ComboBox x:Name="DateSortComboBox" Width="140" SelectionChanged="DateSortComboBox_SelectionChanged" Margin="0,0,10,0">
+                <ComboBoxItem Content="Data rosnąco" />
+                <ComboBoxItem Content="Data malejąco" />
+            </ComboBox>
 
-                <StackPanel>
-                    <TextBlock Text="Od" Style="{StaticResource Caption}"/>
-                    <DatePicker x:Name="FromDatePicker"/>
-                </StackPanel>
+            <TextBlock Text="Od:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <DatePicker x:Name="FromDatePicker" Width="120" Margin="0,0,10,0"/>
 
-                <StackPanel>
-                    <TextBlock Text="Do" Style="{StaticResource Caption}"/>
-                    <DatePicker x:Name="ToDatePicker"/>
-                </StackPanel>
+            <TextBlock Text="Do:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+            <DatePicker x:Name="ToDatePicker" Width="120" Margin="0,0,10,0"/>
 
-                <StackPanel>
-                    <TextBlock Text="Kategoria" Style="{StaticResource Caption}"/>
-                    <ComboBox />
-                </StackPanel>
+            <Button Content="Filtruj" Width="80" Click="FilterButton_Click" Margin="0,0,10,0"/>
+            <Button Content="Eksportuj oba wykresy do PNG" Click="ExportChartsToPng_Click" Margin="5"/>
+            <Button Content="Eksportuj do PDF" Click="ExportChartToPdf_Click" Margin="5"/>
+        </StackPanel>
 
-                <StackPanel>
-                    <TextBlock Text="Minimalna kwota" Style="{StaticResource Caption}"/>
-                    <TextBox />
-                </StackPanel>
+        <!-- Wykresy -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                    <Button Content="Filtruj" Click="FilterButton_Click" />
-                </StackPanel>
-            </UniformGrid>
-        </Border>
+            <GroupBox Header="Wydatki wg kategorii" Grid.Row="0" Margin="0,5,0,5">
+                <lvc:PieChart x:Name="pieChart"/>
+            </GroupBox>
 
-        <!-- WYKRES: kategorie -->
-        <Border Grid.Row="1" Style="{StaticResource SurfaceCard}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Text="Wydatki wg kategorii" Style="{StaticResource CardHeader}"/>
-                <lvc:PieChart x:Name="pieChart" Grid.Row="1"
-                      LegendPosition="Right"
-                      DataTooltip="{x:Null}" />
-            </Grid>
-        </Border>
-
-        <!-- WYKRES: w czasie -->
-        <Border Grid.Row="2" Style="{StaticResource SurfaceCard}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Text="Wydatki wg daty" Style="{StaticResource CardHeader}"/>
-
-                <lvc:CartesianChart x:Name="lineChart" Grid.Row="1" DrawMarginFrame="{x:Null}">
-                    <lvc:CartesianChart.XAxes>
-                        <lvc:Axis LabelsRotation="0" TextSize="14" />
-                    </lvc:CartesianChart.XAxes>
-                    <lvc:CartesianChart.YAxes>
-                        <lvc:Axis TextSize="14" />
-                    </lvc:CartesianChart.YAxes>
-                </lvc:CartesianChart>
-            </Grid>
-        </Border>
+            <GroupBox Header="Wydatki wg daty" Grid.Row="1">
+                <lvc:CartesianChart x:Name="lineChart"/>
+            </GroupBox>
+        </Grid>
     </Grid>
 </Window>

@@ -35,26 +35,58 @@
         </StackPanel>
 
         <!-- Lista -->
-        <ListView x:Name="ExpenseListView" Grid.Row="2" MouseDoubleClick="ExpenseListView_MouseDoubleClick">
+        <ListView x:Name="ExpenseListView" Grid.Row="2">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Kwota"     DisplayMemberBinding="{Binding Amount}"      Width="100"/>
-                    <GridViewColumn Header="Kategoria" DisplayMemberBinding="{Binding Category}"    Width="150"/>
-                    <GridViewColumn Header="Data"      DisplayMemberBinding="{Binding Date}"        Width="150"/>
-                    <GridViewColumn Header="Opis"      DisplayMemberBinding="{Binding Description}" Width="250"/>
+                    <!-- Kwota 2 miejsca po przecinku -->
+                    <GridViewColumn Header="Kwota"
+                                DisplayMemberBinding="{Binding Amount, StringFormat={}{0:N2} zł}"
+                                Width="110"/>
+
+                    <GridViewColumn Header="Kategoria"
+                                DisplayMemberBinding="{Binding Category}"
+                                Width="150"/>
+
+                    <GridViewColumn Header="Data"
+                                DisplayMemberBinding="{Binding Date, StringFormat={}{0:yyyy-MM-dd}}"
+                                Width="150"/>
+
+                    <GridViewColumn Header="Opis"
+                                DisplayMemberBinding="{Binding Description}"
+                                Width="250"/>
+
+                    <!-- Akcje w wierszu -->
+                    <GridViewColumn Header="Akcje" Width="160">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Content="Edytuj"
+                                        Padding="8,2"
+                                        Margin="0,0,6,0"
+                                        Tag="{Binding Id}"
+                                        Click="EditExpense_Click"/>
+                                    <Button Content="Usuń"
+                                        Padding="8,2"
+                                        Tag="{Binding Id}"
+                                        Click="DeleteExpense_Click"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>
 
-        <!-- Akcje: lewo/środek/prawo -->
+        <!-- Dolny pasek akcji (POZA ListView!) -->
         <StackPanel Orientation="Horizontal" Grid.Row="3" HorizontalAlignment="Left" Margin="0,10,0,0">
             <Button Content="Dodaj" Width="100" Margin="0,0,10,0" Click="AddExpenseButton_Click"/>
-            <Button Content="Usuń"  Width="100" Click="DeleteExpense_Click"/>
+            <!-- Jeśli chcesz też usuwanie zaznaczonego z listy: -->
+            <Button Content="Usuń zaznaczony" Width="130" Click="DeleteSelected_Click"/>
         </StackPanel>
 
         <Button Content="Wykres wydatków"
-                Grid.Row="3" HorizontalAlignment="Center" Width="150" Margin="0,10,0,0"
-                Click="ShowChart_Click"/>
+            Grid.Row="3" HorizontalAlignment="Center" Width="150" Margin="0,10,0,0"
+            Click="ShowChart_Click"/>
 
         <StackPanel Orientation="Horizontal" Grid.Row="3" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Content="Usuń konto" Click="DeleteAccount_Click"/>

@@ -1,0 +1,29 @@
+﻿<Window x:Class="Finly.Shell.ShellWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Finly" WindowState="Maximized" ResizeMode="CanResize">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- lewa nawigacja -->
+        <Border Background="#111318" Padding="16">
+            <StackPanel>
+                <TextBlock Text="FINLY" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
+                <Button Content="Panel główny"   Tag="Dashboard"  Click="Nav_Click" Margin="0,0,0,8"/>
+                <Button Content="Dodaj wydatek"  Tag="AddExpense" Click="Nav_Click" Margin="0,0,0,8"/>
+                <Button Content="Wykresy"        Tag="Charts"     Click="Nav_Click" Margin="0,0,0,8"/>
+                <Button Content="Kategorie"      Tag="Categories" Click="Nav_Click" Margin="0,0,0,8"/>
+                <Button Content="Ustawienia"     Tag="Settings"   Click="Nav_Click" Margin="0,0,0,8"/>
+                <Separator Margin="0,16,0,16"/>
+                <Button Content="Wyloguj"        Tag="Logout"     Click="Nav_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- prawa zawartość -->
+        <ContentControl x:Name="ContentHost" Grid.Column="1"/>
+    </Grid>
+</Window>

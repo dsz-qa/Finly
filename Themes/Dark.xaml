@@ -1,32 +1,15 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="App.Background"            Color="#0F1115"/>
+    <SolidColorBrush x:Key="App.Foreground"            Color="#E5E7EB"/>
 
-    <!-- Paleta -->
-    <Color x:Key="Primary">#FF7AA2FF</Color>
-    <Color x:Key="Primary.Dark">#FF4C6FFF</Color>
-    <Color x:Key="Accent">#FF00D1B2</Color>
+    <SolidColorBrush x:Key="Sidebar.Background"        Color="#151821"/>
+    <SolidColorBrush x:Key="Sidebar.Foreground"        Color="#E5E7EB"/>
+    <SolidColorBrush x:Key="Sidebar.Border"            Color="#232736"/>
+    <SolidColorBrush x:Key="Sidebar.ItemHoverBrush"    Color="#1F2433"/>
 
-    <Color x:Key="Bg.Base">#FF0B1020</Color>
-    <Color x:Key="Bg.Surface">#FF111827</Color>
-    <Color x:Key="Border.Base">#33FFFFFF</Color>
+    <SolidColorBrush x:Key="Surface.Background"        Color="#171B26"/>
+    <SolidColorBrush x:Key="Surface.Border"            Color="#232736"/>
 
-    <Color x:Key="Fg.Primary">#FFE5E7EB</Color>
-    <Color x:Key="Fg.Muted">#99E5E7EB</Color>
-    <Color x:Key="Fg.Invert">#FF0B1020</Color>
-
-    <!-- Brushes -->
-    <SolidColorBrush x:Key="App.Background" Color="{StaticResource Bg.Base}"/>
-    <SolidColorBrush x:Key="App.Foreground" Color="{StaticResource Fg.Primary}"/>
-
-    <SolidColorBrush x:Key="Surface.Background" Color="{StaticResource Bg.Surface}"/>
-    <SolidColorBrush x:Key="Surface.Border" Color="{StaticResource Border.Base}"/>
-
-    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
-    <SolidColorBrush x:Key="PrimaryBrush.Dark" Color="{StaticResource Primary.Dark}"/>
-    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}"/>
-
-    <SolidColorBrush x:Key="Text.Primary" Color="{StaticResource Fg.Primary}"/>
-    <SolidColorBrush x:Key="Text.Muted" Color="{StaticResource Fg.Muted}"/>
-    <SolidColorBrush x:Key="Text.Invert" Color="{StaticResource Fg.Invert}"/>
-
+    <SolidColorBrush x:Key="AccentBrush"               Color="#6EA8FE"/>
 </ResourceDictionary>

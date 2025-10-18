@@ -1,3 +1,11 @@
+Ôªøusing Finly.Models;
+using Finly.Services;
+using LiveChartsCore;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
+using LiveChartsCore.SkiaSharpView.WPF;
+using PdfSharp.Drawing;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -7,29 +15,26 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-using LiveChartsCore;
-using LiveChartsCore.SkiaSharpView;
-using LiveChartsCore.SkiaSharpView.Painting;
-using LiveChartsCore.SkiaSharpView.WPF;
-using SkiaSharp;
-
-using PdfSharp.Drawing;
-
-using Finly.Models;
-using Finly.Services;
-
-namespace Finly.Views
+namespace Finly.Pages
 {
-    public partial class ChartView : Window
+    public partial class ChartsPage : UserControl
     {
         private readonly int _userId;
         private List<Expense> expenses = new();
 
-        public ChartView(int userId)
+        public ChartsPage() : this(SafeGetUserId()) { }
+
+        public ChartsPage(int userId)
         {
             InitializeComponent();
             _userId = userId;
-            LoadChartData(); // wczytaj wszystkie dane na start
+            LoadChartData(); // startowo bez filtr√≥w
+        }
+
+        private static int SafeGetUserId()
+        {
+            try { return UserService.GetCurrentUserId(); }
+            catch { return 0; }
         }
 
         private void FilterButton_Click(object sender, RoutedEventArgs e)
@@ -54,7 +59,7 @@ namespace Finly.Views
             LoadPieChart(filtered);
             LoadLineChart(filtered);
 
-            // lista do sortowania w comboboxach
+            // dane pomocnicze do sortowania w comboboxach
             expenses = filtered.Select(e => new Expense
             {
                 Id = e.Id,
@@ -65,9 +70,9 @@ namespace Finly.Views
             }).ToList();
         }
 
-        private void LoadPieChart(List<ExpenseDisplayModel> expenses)
+        private void LoadPieChart(List<ExpenseDisplayModel> data)
         {
-            var grouped = expenses
+            var grouped = data
                 .GroupBy(e => e.CategoryName)
                 .Select(g => new PieSeries<decimal>
                 {
@@ -75,16 +80,16 @@ namespace Finly.Views
                     Values = new List<decimal> { (decimal)g.Sum(e => e.Amount) },
                     DataLabelsSize = 14,
                     DataLabelsPosition = LiveChartsCore.Measure.PolarLabelsPosition.Middle,
-                    DataLabelsFormatter = point => $"{point.PrimaryValue:N0} z≥"
+                    DataLabelsFormatter = point => $"{point.PrimaryValue:N0} z≈Ç"
                 })
                 .ToArray();
 
             pieChart.Series = grouped;
         }
 
-        private void LoadLineChart(List<ExpenseDisplayModel> expenses)
+        private void LoadLineChart(List<ExpenseDisplayModel> data)
         {
-            var grouped = expenses
+            var grouped = data
                 .GroupBy(e => e.Date.Date)
                 .OrderBy(g => g.Key)
                 .Select(g => new
@@ -118,8 +123,9 @@ namespace Finly.Views
             {
                 new Axis
                 {
-                    Name = "Kwota [z≥]",
+                    Name = "Kwota [z≈Ç]",
                     LabelsPaint = new SolidColorPaint(SKColors.Black),
+                    // je≈õli chcesz zwyk≈Çe warto≈õci bez ‚Äûtys.‚Äù ‚Äì zakomentuj tƒô linijkƒô:
                     Labeler = value => $"{value / 1000:N1} tys."
                 }
             };
@@ -141,7 +147,7 @@ namespace Finly.Views
             };
             if (saveDialogLine.ShowDialog() != true) return;
 
-            // Zapis PieChart
+            // Pie
             var pieBitmap = new RenderTargetBitmap(
                 Math.Max(1, (int)pieChart.ActualWidth),
                 Math.Max(1, (int)pieChart.ActualHeight),
@@ -152,7 +158,7 @@ namespace Finly.Views
             using (var stream = File.Create(saveDialogPie.FileName))
                 pieEncoder.Save(stream);
 
-            // Zapis LineChart
+            // Line
             var lineBitmap = new RenderTargetBitmap(
                 Math.Max(1, (int)lineChart.ActualWidth),
                 Math.Max(1, (int)lineChart.ActualHeight),
@@ -163,7 +169,7 @@ namespace Finly.Views
             using (var stream = File.Create(saveDialogLine.FileName))
                 lineEncoder.Save(stream);
 
-            MessageBox.Show("Wykresy zapisano jako pliki PNG.", "Sukces",
+            MessageBox.Show("Wykresy zapisano jako PNG.", "Sukces",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -174,7 +180,7 @@ namespace Finly.Views
             string pieChartPath = Path.GetTempFileName() + "_pie.png";
             string lineChartPath = Path.GetTempFileName() + "_line.png";
 
-            // Render PieChart
+            // Render Pie
             var pieBitmap = new RenderTargetBitmap(
                 Math.Max(1, (int)pieChart.ActualWidth),
                 Math.Max(1, (int)pieChart.ActualHeight),
@@ -184,7 +190,7 @@ namespace Finly.Views
             pieEncoder.Frames.Add(BitmapFrame.Create(pieBitmap));
             using (var stream = File.Create(pieChartPath)) pieEncoder.Save(stream);
 
-            // Render LineChart
+            // Render Line
             var lineBitmap = new RenderTargetBitmap(
                 Math.Max(1, (int)lineChart.ActualWidth),
                 Math.Max(1, (int)lineChart.ActualHeight),
@@ -217,12 +223,12 @@ namespace Finly.Views
                 }
 
                 doc.Save(saveDialog.FileName);
-                MessageBox.Show("Wykresy zosta≥y zapisane jako PDF.", "Sukces",
+                MessageBox.Show("Wykresy zapisane do PDF.", "Sukces",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
 
-            try { File.Delete(pieChartPath); } catch { /* ignore */ }
-            try { File.Delete(lineChartPath); } catch { /* ignore */ }
+            try { File.Delete(pieChartPath); } catch { }
+            try { File.Delete(lineChartPath); } catch { }
         }
 
         private void SortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -231,7 +237,7 @@ namespace Finly.Views
 
             if (expenses == null || expenses.Count == 0)
             {
-                MessageBox.Show("Brak danych do sortowania.", "B≥πd",
+                MessageBox.Show("Brak danych do sortowania.", "B≈ÇƒÖd",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
@@ -242,9 +248,9 @@ namespace Finly.Views
                 sortedExpenses = expenses.OrderBy(x => x.Category).ToList();
             else if (selected == "Kategoria Z-A")
                 sortedExpenses = expenses.OrderByDescending(x => x.Category).ToList();
-            else if (selected == "Suma rosnπco")
+            else if (selected == "Suma rosnƒÖco")
                 sortedExpenses = expenses.OrderBy(x => x.Amount).ToList();
-            else if (selected == "Suma malejπco")
+            else if (selected == "Suma malejƒÖco")
                 sortedExpenses = expenses.OrderByDescending(x => x.Amount).ToList();
 
             var displayExpenses = sortedExpenses.Select(x => new ExpenseDisplayModel
@@ -265,16 +271,16 @@ namespace Finly.Views
 
             if (expenses == null || expenses.Count == 0)
             {
-                MessageBox.Show("Brak danych do sortowania.", "B≥πd",
+                MessageBox.Show("Brak danych do sortowania.", "B≈ÇƒÖd",
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             var sortedExpenses = expenses;
 
-            if (selected == "Data rosnπco")
+            if (selected == "Data rosnƒÖco")
                 sortedExpenses = expenses.OrderBy(x => x.Date).ToList();
-            else if (selected == "Data malejπco")
+            else if (selected == "Data malejƒÖco")
                 sortedExpenses = expenses.OrderByDescending(x => x.Date).ToList();
 
             var convertedExpenses = sortedExpenses.Select(x => new ExpenseDisplayModel

@@ -25,5 +25,10 @@
 
         <!-- prawa zawartość -->
         <ContentControl x:Name="ContentHost" Grid.Column="1"/>
+        <Canvas x:Name="ToastLayer"
+          Grid.ColumnSpan="2"
+          IsHitTestVisible="False"
+          HorizontalAlignment="Stretch"
+          VerticalAlignment="Stretch"/>
     </Grid>
 </Window>

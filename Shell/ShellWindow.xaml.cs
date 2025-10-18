@@ -1,7 +1,6 @@
-﻿using Finly.Pages;
-using System.Configuration;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
+using Finly.Pages;
 
 namespace Finly.Shell
 {
@@ -10,7 +9,7 @@ namespace Finly.Shell
         public ShellWindow()
         {
             InitializeComponent();
-            NavigateTo("Dashboard"); // start
+            NavigateTo("Dashboard");
         }
 
         public void NavigateTo(string tag)
@@ -18,10 +17,10 @@ namespace Finly.Shell
             switch (tag)
             {
                 case "Dashboard": ContentHost.Content = new DashboardPage(); break;
-                case "AddExpense": ContentHost.Content = new AddExpensePage(); break;
-                case "Charts": ContentHost.Content = new ChartsPage(); break;
-                case "Categories": ContentHost.Content = new CategoriesPage(); break;
-                case "Settings": ContentHost.Content = new SettingsPage(); break;
+                case "AddExpense": ContentHost.Content = new Finly.Pages.AddExpensePage(); break;
+                case "Charts": ContentHost.Content = new Finly.Pages.ChartsPage(); break;
+                case "Categories": ContentHost.Content = new Finly.Pages.CategoriesPage(); break;
+                case "Settings": ContentHost.Content = new Finly.Pages.SettingsPage(); break;
                 case "Logout": Close(); break;
                 default: ContentHost.Content = new DashboardPage(); break;
             }
@@ -29,8 +28,7 @@ namespace Finly.Shell
 
         private void Nav_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not Button btn || btn.Tag is not string tag) return;
-            NavigateTo(tag);
+            if (sender is Button b && b.Tag is string tag) NavigateTo(tag);
         }
     }
 }

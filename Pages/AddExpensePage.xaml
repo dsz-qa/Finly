@@ -27,5 +27,6 @@
 			<Button Content="Dodaj"  Width="80" Margin="5" Click="AddButton_Click"/>
 			<Button Content="Anuluj" Width="80" Margin="5" Click="CancelButton_Click"/>
 		</StackPanel>
+        
 	</Grid>
 </UserControl>

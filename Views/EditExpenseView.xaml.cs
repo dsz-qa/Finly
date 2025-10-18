@@ -1,7 +1,7 @@
 using System;
 using System.Windows;
 using Finly.Models;
-using Finly.Services;
+using Finly.Services;   // <- to nam wystarczy (ToastService jest w Finly.Services)
 
 namespace Finly.Views
 {
@@ -16,7 +16,6 @@ namespace Finly.Views
             _userId = userId;
             _existingExpense = expense ?? throw new ArgumentNullException(nameof(expense));
 
-            // Wype³nij pola formularza
             AmountBox.Text = expense.Amount.ToString("0.##");
             CategoryBox.Text = DatabaseService.GetCategoryNameById(expense.CategoryId) ?? string.Empty;
             DateBox.SelectedDate = expense.Date;
@@ -25,21 +24,9 @@ namespace Finly.Views
 
         private void SaveChanges_Click(object sender, RoutedEventArgs e)
         {
-            if (!double.TryParse(AmountBox.Text, out double amount))
-            {
-                MessageBox.Show("WprowadŸ poprawn¹ kwotê.");
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(CategoryBox.Text))
-            {
-                MessageBox.Show("Podaj kategoriê.");
-                return;
-            }
-            if (!DateBox.SelectedDate.HasValue)
-            {
-                MessageBox.Show("Wybierz datê.");
-                return;
-            }
+            if (!double.TryParse(AmountBox.Text, out double amount)) { MessageBox.Show("WprowadŸ poprawn¹ kwotê."); return; }
+            if (string.IsNullOrWhiteSpace(CategoryBox.Text)) { MessageBox.Show("Podaj kategoriê."); return; }
+            if (!DateBox.SelectedDate.HasValue) { MessageBox.Show("Wybierz datê."); return; }
 
             string categoryName = CategoryBox.Text.Trim();
             int categoryId = DatabaseService.GetOrCreateCategoryId(categoryName, _userId);
@@ -50,8 +37,10 @@ namespace Finly.Views
             _existingExpense.Description = DescriptionBox.Text ?? string.Empty;
 
             DatabaseService.UpdateExpense(_existingExpense);
-            MessageBox.Show("Zapisano zmiany.");
-            DialogResult = true;
+
+            // ³adny komunikat
+            ToastService.Show("Zapisano zmiany.", "success");
+
             Close();
         }
     }

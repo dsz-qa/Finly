@@ -10,7 +10,6 @@ namespace Finly.Pages
     {
         private readonly int _userId;
 
-        // Jeśli masz UserService.GetCurrentUserId() – super. Inaczej w ShellWindow przekazuj userId do konstruktora.
         public AddExpensePage() : this(SafeGetUserId()) { }
 
         public AddExpensePage(int userId)
@@ -27,7 +26,6 @@ namespace Finly.Pages
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            // Walidacja pól (dopasuj nazwy kontrolek do swoich w XAML)
             if (string.IsNullOrWhiteSpace(AmountBox.Text) ||
                 string.IsNullOrWhiteSpace(CategoryBox.Text) ||
                 !DateBox.SelectedDate.HasValue ||
@@ -56,18 +54,17 @@ namespace Finly.Pages
             };
 
             DatabaseService.AddExpense(expense);
-            MessageBox.Show("Wydatek został dodany.", "OK", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            // zamiast zamykać okno – nawiguj do Dashboard
-            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
-            shell?.NavigateTo("Dashboard");
+            // ładny toast zamiast MessageBox
+            ToastService.Show("Dodano wydatek.", "success");
+
+            // przejście do dashboardu
+            (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("Dashboard");
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
-            // powrót bez zapisu
-            var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
-            shell?.NavigateTo("Dashboard");
+            (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("Dashboard");
         }
     }
 }

@@ -11,7 +11,7 @@
                 <ResourceDictionary Source="Styles/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Style ogólne okien (opcjonalnie) -->
+            <!-- style okien -->
             <Style TargetType="Window">
                 <Setter Property="WindowState" Value="Maximized"/>
                 <Setter Property="ResizeMode"  Value="CanResize"/>
@@ -21,9 +21,9 @@
                 <Setter Property="Foreground"  Value="{DynamicResource App.Foreground}"/>
             </Style>
 
-            <!-- KONWERTERY -->
-            <conv:BoolToBrushConverter x:Key="BoolToBrush" />
-            <conv:BoolToSymbolConverter x:Key="BoolToSymbol" />
+            <!-- KONWERTERY GLOBALNE -->
+            <conv:BoolToBrushConverter      x:Key="BoolToBrush" />
+            <conv:BoolToSymbolConverter     x:Key="BoolToSymbol" />
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         </ResourceDictionary>
     </Application.Resources>

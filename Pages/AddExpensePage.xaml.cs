@@ -31,34 +31,30 @@ namespace Finly.Pages
                 !DateBox.SelectedDate.HasValue ||
                 string.IsNullOrWhiteSpace(DescriptionBox.Text))
             {
-                MessageBox.Show("Uzupełnij wszystkie pola.");
+                ToastService.Warning("Uzupełnij wszystkie pola.");
                 return;
             }
 
             if (!double.TryParse(AmountBox.Text, out double amount))
             {
-                MessageBox.Show("Wprowadź poprawną kwotę.");
+                ToastService.Error("Wprowadź poprawną kwotę.");
                 return;
             }
 
-            string categoryName = CategoryBox.Text.Trim();
-            int categoryId = DatabaseService.GetOrCreateCategoryId(categoryName, _userId);
+            int categoryId = DatabaseService.GetOrCreateCategoryId(CategoryBox.Text.Trim(), _userId);
 
             var expense = new Expense
             {
                 Amount = amount,
                 CategoryId = categoryId,
-                Date = DateBox.SelectedDate.Value,
+                Date = DateBox.SelectedDate!.Value,
                 Description = DescriptionBox.Text,
                 UserId = _userId
             };
 
             DatabaseService.AddExpense(expense);
+            ToastService.Success("Dodano wydatek.");
 
-            // ładny toast zamiast MessageBox
-            ToastService.Show("Dodano wydatek.", "success");
-
-            // przejście do dashboardu
             (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("Dashboard");
         }
 

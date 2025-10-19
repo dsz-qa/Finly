@@ -25,10 +25,13 @@
 
         <!-- prawa zawartość -->
         <ContentControl x:Name="ContentHost" Grid.Column="1"/>
-        <Canvas x:Name="ToastLayer"
-          Grid.ColumnSpan="2"
-          IsHitTestVisible="False"
-          HorizontalAlignment="Stretch"
-          VerticalAlignment="Stretch"/>
+
+        <!-- Nakładka na toasty: dół, środek -->
+        <StackPanel x:Name="ToastLayer"
+                IsHitTestVisible="False"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,24"
+                Panel.ZIndex="999"/>
     </Grid>
 </Window>

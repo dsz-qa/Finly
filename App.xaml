@@ -21,10 +21,10 @@
                 <Setter Property="Foreground"  Value="{DynamicResource App.Foreground}"/>
             </Style>
 
-            <!-- KONWERTERY GLOBALNE -->
-            <conv:BoolToBrushConverter      x:Key="BoolToBrush" />
-            <conv:BoolToSymbolConverter     x:Key="BoolToSymbol" />
-            <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+            <conv:BoolToBrushConverter      x:Key="BoolToBrush"/>
+            <conv:BoolToSymbolConverter     x:Key="BoolToSymbol"/>
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

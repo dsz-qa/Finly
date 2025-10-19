@@ -1,43 +1,71 @@
 ﻿using System;
-using System.Windows;
+using System.Threading.Tasks;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 
 namespace Finly.Shell
 {
     public partial class ToastControl : UserControl
     {
+        private const int SHOW_MS = 200;
+        private const int HOLD_MS = 2500;
+        private const int HIDE_MS = 250;
+
         public ToastControl(string message, string type = "info")
         {
             InitializeComponent();
-            Msg.Text = message;
+            Msg.Text = message ?? string.Empty;
 
-            // prosta kolorystyka wg typu
-            var color = type switch
+            switch ((type ?? "info").ToLowerInvariant())
             {
-                "success" => "#2e7d32",
-                "error" => "#c62828",
-                "warn" => "#f9a825",
-                _ => "#333333"
-            };
-            Root.Background = (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFromString(color)!;
+                case "success":
+                    Root.Background = new SolidColorBrush(Color.FromRgb(35, 83, 46));
+                    Icon.Text = "✔";
+                    Icon.Foreground = Brushes.White;
+                    break;
 
-            Loaded += (_, __) => AnimateInThenOut();
+                case "error":
+                    Root.Background = new SolidColorBrush(Color.FromRgb(115, 34, 34));
+                    Icon.Text = "✖";
+                    Icon.Foreground = Brushes.White;
+                    break;
+
+                case "warning":
+                    Root.Background = new SolidColorBrush(Color.FromRgb(115, 88, 34));
+                    Icon.Text = "⚠";
+                    Icon.Foreground = Brushes.White;
+                    break;
+
+                default: // info
+                    Root.Background = new SolidColorBrush(Color.FromRgb(43, 43, 43));
+                    Icon.Text = "ℹ";
+                    Icon.Foreground = Brushes.White;
+                    break;
+            }
+
+            Loaded += async (_, __) => await RunAsync();
         }
 
-        private void AnimateInThenOut()
+        private async Task RunAsync()
         {
-            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
-            var stay = new DoubleAnimation(1, 1, TimeSpan.FromSeconds(2)) { BeginTime = TimeSpan.FromMilliseconds(150) };
-            var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200)) { BeginTime = TimeSpan.FromSeconds(2.15) };
-            fadeOut.Completed += (_, __) =>
-            {
-                if (Parent is Panel p) p.Children.Remove(this);
-            };
+            await FadeAsync(0, 1, SHOW_MS);
+            await Task.Delay(HOLD_MS);
+            await FadeAsync(1, 0, HIDE_MS);
 
-            this.BeginAnimation(OpacityProperty, fadeIn);
-            this.BeginAnimation(OpacityProperty, stay);
-            this.BeginAnimation(OpacityProperty, fadeOut);
+            if (Parent is Panel p) p.Children.Remove(this);
+        }
+
+        private Task FadeAsync(double from, double to, int ms)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            var anim = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(ms))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            anim.Completed += (_, __) => tcs.SetResult(true);
+            BeginAnimation(OpacityProperty, anim);
+            return tcs.Task;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Linq;
 using System.Windows;
 
 namespace Finly.Services
@@ -7,24 +7,23 @@ namespace Finly.Services
 
     public static class ThemeService
     {
-        private static ResourceDictionary? _current;
         public static AppTheme Current { get; private set; } = AppTheme.Light;
 
         public static void Apply(AppTheme theme)
         {
             var app = Application.Current;
-            if (app is null) return;
+            if (app == null) return;
 
-            if (_current != null) app.Resources.MergedDictionaries.Remove(_current);
+            // usuń stare Theme dictionary
+            var old = app.Resources.MergedDictionaries
+                .FirstOrDefault(d => d.Source != null && d.Source.OriginalString.StartsWith("Themes/"));
+            if (old != null) app.Resources.MergedDictionaries.Remove(old);
 
-            var uri = new Uri($"Themes/{(theme == AppTheme.Light ? "Light" : "Dark")}.xaml", UriKind.Relative);
-            _current = new ResourceDictionary { Source = uri };
-            app.Resources.MergedDictionaries.Insert(0, _current); // przed Styles.xaml
+            // dołóż nowe
+            var uri = new System.Uri(theme == AppTheme.Dark ? "Themes/Dark.xaml" : "Themes/Light.xaml", System.UriKind.Relative);
+            app.Resources.MergedDictionaries.Insert(0, new ResourceDictionary { Source = uri });
 
             Current = theme;
         }
-
-        public static void Toggle() =>
-            Apply(Current == AppTheme.Light ? AppTheme.Dark : AppTheme.Light);
     }
 }

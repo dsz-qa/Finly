@@ -1,5 +1,4 @@
-﻿using System;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using Finly.Services;
 
@@ -11,64 +10,32 @@ namespace Finly.Pages
         {
             InitializeComponent();
 
-            // ====== Ustaw stan kontrolek przy starcie ======
-            // Motyw:
-            if (ThemeService.Current == AppTheme.Dark)
-                DarkRadio.IsChecked = true;
-            else
-                LightRadio.IsChecked = true;
+            // aktualny motyw
+            LightRadio.IsChecked = ThemeService.Current == AppTheme.Light;
+            DarkRadio.IsChecked = ThemeService.Current == AppTheme.Dark;
 
-            // Pozycja tostów:
-            ToastPosCombo.Items.Clear();
-            ToastPosCombo.Items.Add("Dół – środek");
-            ToastPosCombo.Items.Add("Góra – prawa");
-
-            // ustaw wybrane na podstawie ToastService.Position
-            ToastPosCombo.SelectedIndex = ToastService.Position switch
-            {
-                ToastService.ToastPosition.BottomCenter => 0,
-                ToastService.ToastPosition.TopRight => 1,
-                _ => 0
-            };
+            // pozycje toastów
+            ToastPosCombo.ItemsSource = new[] { "Dół – środek", "Góra – prawa" };
+            ToastPosCombo.SelectedIndex =
+                ToastService.Position == ToastService.ToastPosition.TopRight ? 1 : 0;
         }
 
-        // ====== Motywy ======
         private void LightRadio_Checked(object sender, RoutedEventArgs e)
-        {
-            if (!IsLoaded) return;
-            ThemeService.Apply(AppTheme.Light);
-            ToastService.Success("Włączono motyw jasny.");
-        }
+            => ThemeService.Apply(AppTheme.Light);
 
         private void DarkRadio_Checked(object sender, RoutedEventArgs e)
-        {
-            if (!IsLoaded) return;
-            ThemeService.Apply(AppTheme.Dark);
-            ToastService.Success("Włączono motyw ciemny.");
-        }
+            => ThemeService.Apply(AppTheme.Dark);
 
-        // ====== Pozycja tostów ======
         private void ToastPosCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (!IsLoaded) return;
+            ToastService.Position = ToastPosCombo.SelectedIndex == 1
+                ? ToastService.ToastPosition.TopRight
+                : ToastService.ToastPosition.BottomCenter;
 
-            switch (ToastPosCombo.SelectedIndex)
-            {
-                case 0:
-                    ToastService.SetPosition(ToastService.ToastPosition.BottomCenter);
-                    ToastService.Info("Komunikaty będą wyświetlane na dole pośrodku.");
-                    break;
-                case 1:
-                    ToastService.SetPosition(ToastService.ToastPosition.TopRight);
-                    ToastService.Info("Komunikaty będą wyświetlane w prawym górnym rogu.");
-                    break;
-            }
+            ToastService.Info("Zmieniono pozycję powiadomień.");
         }
 
-        // Opcjonalny przycisk "Przetestuj"
-        private void TestToast_Click(object sender, RoutedEventArgs e)
-        {
-            ToastService.Success("Przykładowy komunikat 😊");
-        }
+        private void PreviewBtn_Click(object sender, RoutedEventArgs e)
+            => ToastService.Success("To jest przykładowe powiadomienie.");
     }
 }

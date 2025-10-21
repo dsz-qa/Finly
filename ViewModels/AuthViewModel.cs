@@ -22,7 +22,7 @@ namespace Finly.ViewModels
         private string _loginMessage = string.Empty;
         private bool _loginIsError;
 
-        // Regex e-maila (culture-invariant)
+        // E-mail regex (culture-invariant)
         private static readonly Regex EmailRegex =
             new(@"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$",
                 RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -33,9 +33,8 @@ namespace Finly.ViewModels
             get => _username;
             set
             {
-                _username = (value ?? string.Empty).Trim();
-                OnPropertyChanged();
-                UpdateEmailValidity();
+                if (Set(ref _username, (value ?? string.Empty).Trim()))
+                    UpdateEmailValidity();
             }
         }
 
@@ -44,10 +43,8 @@ namespace Finly.ViewModels
             get => _isLoginMode;
             private set
             {
-                if (_isLoginMode == value) return;
-                _isLoginMode = value;
-                OnPropertyChanged();
-                OnPropertyChanged(nameof(IsRegisterMode));
+                if (Set(ref _isLoginMode, value))
+                    OnPropertyChanged(nameof(IsRegisterMode));
             }
         }
         public bool IsRegisterMode => !IsLoginMode;
@@ -56,12 +53,16 @@ namespace Finly.ViewModels
         public string RegisterMessage
         {
             get => _registerMessage;
-            set { _registerMessage = value ?? string.Empty; OnPropertyChanged(); }
+            set => Set(ref _registerMessage, value ?? string.Empty);
         }
         public bool RegisterIsError
         {
             get => _registerIsError;
-            set { _registerIsError = value; OnPropertyChanged(); OnPropertyChanged(nameof(RegisterMessageBrush)); }
+            set
+            {
+                if (Set(ref _registerIsError, value))
+                    OnPropertyChanged(nameof(RegisterMessageBrush));
+            }
         }
         public Brush RegisterMessageBrush => RegisterIsError ? Brushes.IndianRed : Brushes.SeaGreen;
 
@@ -69,30 +70,83 @@ namespace Finly.ViewModels
         public string LoginBanner
         {
             get => _loginBanner;
-            set { _loginBanner = value ?? string.Empty; OnPropertyChanged(); }
+            set => Set(ref _loginBanner, value ?? string.Empty);
         }
         public Brush LoginBannerBrush
         {
             get => _loginBannerBrush;
-            set { _loginBannerBrush = value ?? Brushes.Transparent; OnPropertyChanged(); }
+            set => Set(ref _loginBannerBrush, value ?? Brushes.Transparent);
         }
 
         // Logowanie – komunikat pod hasłem
         public string LoginMessage
         {
             get => _loginMessage;
-            set { _loginMessage = value ?? string.Empty; OnPropertyChanged(); }
+            set => Set(ref _loginMessage, value ?? string.Empty);
         }
         public bool LoginIsError
         {
             get => _loginIsError;
-            set { _loginIsError = value; OnPropertyChanged(); OnPropertyChanged(nameof(LoginMessageBrush)); }
+            set
+            {
+                if (Set(ref _loginIsError, value))
+                    OnPropertyChanged(nameof(LoginMessageBrush));
+            }
         }
         public Brush LoginMessageBrush => LoginIsError ? Brushes.IndianRed : Brushes.SeaGreen;
 
-        // Walidacja e-maila i aktywacja przycisku rejestracji
+        // Walidacja e-maila i aktywacja rejestracji
         public bool IsEmailValid { get; private set; }
+
+        // ===== Wymagania hasła (live) =====
+        private bool _pwMinLen, _pwLower, _pwUpper, _pwDigit, _pwSpecial, _pwNoSpace, _pwMatch;
+
+        public bool PwMinLen
+        {
+            get => _pwMinLen;
+            set { if (Set(ref _pwMinLen, value)) BumpPwAggregates(); }
+        }
+        public bool PwLower
+        {
+            get => _pwLower;
+            set { if (Set(ref _pwLower, value)) BumpPwAggregates(); }
+        }
+        public bool PwUpper
+        {
+            get => _pwUpper;
+            set { if (Set(ref _pwUpper, value)) BumpPwAggregates(); }
+        }
+        public bool PwDigit
+        {
+            get => _pwDigit;
+            set { if (Set(ref _pwDigit, value)) BumpPwAggregates(); }
+        }
+        public bool PwSpecial
+        {
+            get => _pwSpecial;
+            set { if (Set(ref _pwSpecial, value)) BumpPwAggregates(); }
+        }
+        public bool PwNoSpace
+        {
+            get => _pwNoSpace;
+            set { if (Set(ref _pwNoSpace, value)) BumpPwAggregates(); }
+        }
+        public bool PwMatch
+        {
+            get => _pwMatch;
+            set { if (Set(ref _pwMatch, value)) BumpPwAggregates(); }
+        }
+
+        public bool IsPasswordValid =>
+            PwMinLen && PwLower && PwUpper && PwDigit && PwSpecial && PwNoSpace && PwMatch;
+
         public bool CanRegister => IsEmailValid && IsPasswordValid;
+
+        private void BumpPwAggregates()
+        {
+            OnPropertyChanged(nameof(IsPasswordValid));
+            OnPropertyChanged(nameof(CanRegister));
+        }
 
         // Ustalany po poprawnym logowaniu
         public int LoggedInUserId { get; private set; } = -1;
@@ -169,8 +223,7 @@ namespace Finly.ViewModels
             }
 
             Username = u.ToLowerInvariant(); // kanonizacja
-            var ok = UserService.Login(Username, password);
-            if (!ok)
+            if (!UserService.Login(Username, password))
             {
                 LoginIsError = true;
                 LoginMessage = "Błędny login lub hasło.";
@@ -198,8 +251,7 @@ namespace Finly.ViewModels
             if (!UserService.IsUsernameAvailable(Username))
                 return Error("Nie udało się utworzyć konta. Login jest zajęty.");
 
-            var ok = UserService.Register(Username, password);
-            if (!ok)
+            if (!UserService.Register(Username, password))
                 return Error("Nie udało się utworzyć konta. Spróbuj ponownie.");
 
             IsLoginMode = true;
@@ -208,30 +260,19 @@ namespace Finly.ViewModels
             return true;
         }
 
-        // ===== Wymagania hasła (live) =====
-        private bool _pwdHasMinLen, _pwdHasLower, _pwdHasUpper, _pwdHasDigit, _pwdHasSpecial, _pwdNoSpaces, _pwdMatchesConfirm;
-
-        public bool PwdHasMinLen { get => _pwdHasMinLen; set { _pwdHasMinLen = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanRegister)); } }
-        public bool PwdHasLower { get => _pwdHasLower; set { _pwdHasLower = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanRegister)); } }
-        public bool PwdHasUpper { get => _pwdHasUpper; set { _pwdHasUpper = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanRegister)); } }
-        public bool PwdHasDigit { get => _pwdHasDigit; set { _pwdHasDigit = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanRegister)); } }
-        public bool PwdHasSpecial { get => _pwdHasSpecial; set { _pwdHasSpecial = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanRegister)); } }
-        public bool PwdNoSpaces { get => _pwdNoSpaces; set { _pwdNoSpaces = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanRegister)); } }
-        public bool PwdMatchesConfirm { get => _pwdMatchesConfirm; set { _pwdMatchesConfirm = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanRegister)); } }
-
-        public bool IsPasswordValid =>
-            PwdHasMinLen && PwdHasLower && PwdHasUpper && PwdHasDigit && PwdHasSpecial && PwdNoSpaces && PwdMatchesConfirm;
-
-        public void UpdatePasswordHints(string pwd, string confirm)
+        // Live-aktualizacja checklisty
+        public void UpdatePasswordHints(string password, string confirm)
         {
-            pwd ??= string.Empty; confirm ??= string.Empty;
-            PwdHasMinLen = pwd.Length >= 8;
-            PwdHasLower = Regex.IsMatch(pwd, "[a-z]");
-            PwdHasUpper = Regex.IsMatch(pwd, "[A-Z]");
-            PwdHasDigit = Regex.IsMatch(pwd, "[0-9]");
-            PwdHasSpecial = Regex.IsMatch(pwd, "[^\\w\\s]");
-            PwdNoSpaces = !Regex.IsMatch(pwd, "\\s");
-            PwdMatchesConfirm = string.Equals(pwd, confirm, StringComparison.Ordinal);
+            var p = password ?? string.Empty;
+            PwMinLen = p.Length >= 8;
+            PwLower = Regex.IsMatch(p, "[a-z]");
+            PwUpper = Regex.IsMatch(p, "[A-Z]");
+            PwDigit = Regex.IsMatch(p, "\\d");
+            PwSpecial = Regex.IsMatch(p, "[^\\w\\s]"); // znak spec. (nie litera/cyfra/whitespace)
+            PwNoSpace = !Regex.IsMatch(p, "\\s");
+            PwMatch = p == (confirm ?? string.Empty);
+
+            // agregaty odświeżane w setterach → tu nic więcej nie trzeba
         }
 
         // ===== Helpery =====
@@ -240,6 +281,14 @@ namespace Finly.ViewModels
             RegisterIsError = true;
             RegisterMessage = msg ?? string.Empty;
             return false;
+        }
+
+        private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
+        {
+            if (Equals(field, value)) return false;
+            field = value;
+            OnPropertyChanged(name);
+            return true;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

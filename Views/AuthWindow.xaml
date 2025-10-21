@@ -10,8 +10,8 @@
 
         <!-- ================== PANEL LOGOWANIA ================== -->
         <StackPanel x:Name="LoginPanel"
-                    Visibility="{Binding IsLoginMode, Converter={StaticResource BoolToVisibility}}"
-                    VerticalAlignment="Center">
+                Visibility="{Binding IsLoginMode, Converter={StaticResource BoolToVisibility}}"
+                VerticalAlignment="Center">
 
             <TextBlock Text="{Binding LoginBanner}"
                        Foreground="{Binding LoginBannerBrush}"
@@ -46,8 +46,8 @@
 
         <!-- ================== PANEL REJESTRACJI ================== -->
         <StackPanel x:Name="RegisterPanel"
-                    Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"
-                    VerticalAlignment="Center">
+                Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"
+                VerticalAlignment="Center">
 
             <TextBlock Text="Login:"/>
             <TextBox x:Name="RegUsername"
@@ -72,56 +72,53 @@
                       Unchecked="RegShowPassword_Unchecked"/>
 
             <!-- CHECKLISTA wymagań hasła -->
-            <StackPanel Margin="0,0,0,6">
+            <!-- CHECKLISTA wymagań hasła -->
+            <StackPanel Margin="0,6,0,6">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding IsOk, Converter={StaticResource BoolToBrush}}"
-                               Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
-                               FontWeight="Bold" Margin="0,0,6,0"/>
-                    <TextBlock Text="co najmniej 8 znaków"/>
+                    <TextBlock Margin="0,0,6,0" FontWeight="Bold"
+                     Foreground="{Binding PwMinLen, Converter={StaticResource BoolToBrush}}"
+                     Text="{Binding PwMinLen, Converter={StaticResource BoolToSymbol}}"/>
+                <TextBlock Text="co najmniej 8 znaków"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding IsOk, Converter={StaticResource BoolToBrush}}"
-                               Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
-                               FontWeight="Bold" Margin="0,0,6,0"/>
+                    <TextBlock 
+                        Foreground="{Binding PwLower,   Converter={StaticResource BoolToBrush}}"
+                        Text="{Binding PwLower,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="mała litera"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding IsOk, Converter={StaticResource BoolToBrush}}"
-                               Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
-                               FontWeight="Bold" Margin="0,0,6,0"/>
+                    <TextBlock Foreground="{Binding PwUpper,   Converter={StaticResource BoolToBrush}}"
+               Text="{Binding PwUpper,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="wielka litera"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding IsOk, Converter={StaticResource BoolToBrush}}"
-                               Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
-                               FontWeight="Bold" Margin="0,0,6,0"/>
+                    <TextBlock Foreground="{Binding PwDigit,   Converter={StaticResource BoolToBrush}}"
+               Text="{Binding PwDigit,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="cyfra"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding IsOk, Converter={StaticResource BoolToBrush}}"
-                               Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
-                               FontWeight="Bold" Margin="0,0,6,0"/>
+                    <TextBlock Foreground="{Binding PwSpecial, Converter={StaticResource BoolToBrush}}"
+               Text="{Binding PwSpecial, Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="znak specjalny (np. !@#$%)"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding IsOk, Converter={StaticResource BoolToBrush}}"
-                               Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
-                               FontWeight="Bold" Margin="0,0,6,0"/>
+                    <TextBlock Foreground="{Binding PwNoSpace, Converter={StaticResource BoolToBrush}}"
+               Text="{Binding PwNoSpace, Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="bez spacji"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding IsOk, Converter={StaticResource BoolToBrush}}"
-                               Text="{Binding IsOk, Converter={StaticResource BoolToSymbol}}"
-                               FontWeight="Bold" Margin="0,0,6,0"/>
+                    <TextBlock Foreground="{Binding PwMatch,   Converter={StaticResource BoolToBrush}}"
+               Text="{Binding PwMatch,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
                     <TextBlock Text="powtórzone hasło takie samo"/>
                 </StackPanel>
             </StackPanel>
+
 
             <TextBlock Text="{Binding RegisterMessage}"
                        Foreground="{Binding RegisterMessageBrush}"

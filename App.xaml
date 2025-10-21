@@ -7,7 +7,9 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Themes/Light.xaml"/>
+                <!-- domyślnie ciemny -->
+                <ResourceDictionary Source="Themes/Dark.xaml"/>
+                <!-- wspólne style -->
                 <ResourceDictionary Source="Styles/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
@@ -21,10 +23,10 @@
                 <Setter Property="Foreground"  Value="{DynamicResource App.Foreground}"/>
             </Style>
 
+            <!-- 🔑 KONWERTERY – JEDYNE instancje -->
             <conv:BoolToBrushConverter      x:Key="BoolToBrush"/>
             <conv:BoolToSymbolConverter     x:Key="BoolToSymbol"/>
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
-
         </ResourceDictionary>
     </Application.Resources>
 </Application>

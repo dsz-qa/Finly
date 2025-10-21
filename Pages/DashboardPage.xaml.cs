@@ -217,18 +217,18 @@ WHERE e.UserId = @userId;";
         {
             if (ExpenseListView.SelectedItem is ExpenseDisplayModel item)
             {
-                var dlg = new ConfirmDialog("Czy na pewno chcesz usunąć ten wydatek?");
+                var dlg = new Finly.Views.ConfirmDialog("Czy na pewno chcesz usunąć ten wydatek?");
                 dlg.Owner = Window.GetWindow(this);
-
                 if (dlg.ShowDialog() == true && dlg.Result)
                 {
-                    DatabaseService.DeleteExpense(item.Id); // <-- poprawka z 'id' na 'item.Id'
+                    DatabaseService.DeleteExpense(item.Id); // <-- tu był błąd (id -> item.Id)
                     ToastService.Success("Usunięto wydatek.");
                     LoadExpenses();
                     LoadCategories();
                 }
             }
         }
+
 
         // (opcjonalnie) double-click ↔ edycja
         private void ExpenseListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)

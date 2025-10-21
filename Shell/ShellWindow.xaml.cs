@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
-using Finly.Pages;
+using Finly.Pages;   // DashboardPage, AddExpensePage, ChartsPage, CategoriesPage, SettingsPage
 
 namespace Finly.Shell
 {
@@ -12,23 +12,31 @@ namespace Finly.Shell
             NavigateTo("Dashboard");
         }
 
-        public void NavigateTo(string tag)
+        public void NavigateTo(string target)
         {
-            switch (tag)
+            UserControl view = target switch
             {
-                case "Dashboard": ContentHost.Content = new DashboardPage(); break;
-                case "AddExpense": ContentHost.Content = new Finly.Pages.AddExpensePage(); break;
-                case "Charts": ContentHost.Content = new Finly.Pages.ChartsPage(); break;
-                case "Categories": ContentHost.Content = new Finly.Pages.CategoriesPage(); break;
-                case "Settings": ContentHost.Content = new Finly.Pages.SettingsPage(); break;
-                case "Logout": Close(); break;
-                default: ContentHost.Content = new DashboardPage(); break;
-            }
+                "Dashboard" => new DashboardPage(),
+                "AddExpense" => new AddExpensePage(),
+                "Charts" => new ChartsPage(),
+                "Categories" => new CategoriesPage(),
+                "Settings" => new SettingsPage(),
+                _ => new DashboardPage()
+            };
+
+            RightHost.Content = view;   // << nazwa zgodna z XAML
         }
 
-        private void Nav_Click(object sender, RoutedEventArgs e)
+        // --- GÓRNE MENU ---
+        private void Nav_Dashboard_Click(object sender, RoutedEventArgs e) => NavigateTo("Dashboard");
+        private void Nav_Add_Click(object sender, RoutedEventArgs e) => NavigateTo("AddExpense");
+        private void Nav_Charts_Click(object sender, RoutedEventArgs e) => NavigateTo("Charts");
+        private void Nav_Categories_Click(object sender, RoutedEventArgs e) => NavigateTo("Categories");
+        private void Nav_Settings_Click(object sender, RoutedEventArgs e) => NavigateTo("Settings");
+        private void Nav_Logout_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button b && b.Tag is string tag) NavigateTo(tag);
+            // tutaj Twoja logika wylogowania/otwarcia AuthWindow
+            Close();
         }
     }
 }

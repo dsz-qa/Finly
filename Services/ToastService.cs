@@ -9,127 +9,101 @@ namespace Finly.Services
 {
     /// <summary>
     /// Prosty serwis do wyświetlania toastów (Info / Success / Warning / Error).
-    /// Wymaga w ShellWindow elementu:  <StackPanel x:Name="ToastLayer" .../>
+    /// Wymaga w ShellWindow elementu:
+    ///   <Canvas x:Name="ToastLayer" Grid.Row="1"
+    ///           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
     /// </summary>
     public static class ToastService
     {
-        /// <summary>
-        /// Główny „push” – dodaje ToastControl do warstwy w ShellWindow.
-        /// </summary>
-        private static void Push(string message, string type)
-        {
-            // Aplikacja może nie mieć okna (unit testy / start)
-            var app = Application.Current;
-            if (app is null) return;
-
-            void DoWork()
-            {
-                // Znajdź aktualny ShellWindow
-                var shell = app.Windows.OfType<ShellWindow>().FirstOrDefault();
-                if (shell is null) return;
-
-                // Znajdź warstwę na toasty
-                if (shell.FindName("ToastLayer") is not Panel layer) return;
-
-                // Dodaj nowy toast
-                var toast = new ToastControl(message ?? string.Empty, type ?? "info");
-                layer.Children.Add(toast);
-            }
-
-            // Zapewnij wykonanie na wątku UI
-            if (app.Dispatcher.CheckAccess())
-                DoWork();
-            else
-                app.Dispatcher.BeginInvoke(DispatcherPriority.Normal, (DispatcherOperationCallback)(_ =>
-                {
-                    DoWork();
-                    return null;
-                }), null);
-        }
         public enum ToastPosition { BottomCenter, TopRight }
 
-        public static ToastPosition Position { get; private set; } = ToastPosition.BottomCenter;
-
-        public static void SetPosition(ToastPosition position)
-        {
-            Position = position;
-        }
-
-        public static void Show(string message, string type = "info")
-        {
-            var shell = Application.Current.Windows.OfType<Finly.Shell.ShellWindow>().FirstOrDefault();
-            if (shell == null) return;
-            if (shell.FindName("ToastLayer") is not Canvas canvas) return;
-
-            var toast = new Finly.Shell.ToastControl(message, type);
-            canvas.Children.Add(toast);
-
-            toast.Loaded += (_, __) =>
-            {
-                if (Position == ToastPosition.BottomCenter)
-                {
-                    // --- dół-środek (stackowanie w górę) ---
-                    const double bottom = 24;
-                    const double spacing = 10;
-
-                    double y = bottom;
-                    foreach (FrameworkElement child in canvas.Children.OfType<FrameworkElement>())
-                    {
-                        // ustaw od dołu; środek w poziomie
-                        child.UpdateLayout();
-                    }
-
-                    // po załadowaniu policz ułożenie
-                    double curBottom = bottom;
-                    foreach (FrameworkElement child in canvas.Children.OfType<FrameworkElement>())
-                    {
-                        Canvas.SetLeft(child, (canvas.ActualWidth - child.ActualWidth) / 2);
-                        Canvas.SetTop(child, canvas.ActualHeight - curBottom - child.ActualHeight);
-                        curBottom += child.ActualHeight + spacing;
-                    }
-                }
-                else
-                {
-                    // --- prawy-górny róg (stackowanie w dół) ---
-                    const double top = 20, right = 20, spacing = 10;
-
-                    double y = top;
-                    foreach (FrameworkElement child in canvas.Children.OfType<FrameworkElement>())
-                    {
-                        child.UpdateLayout();
-                        Canvas.SetTop(child, y);
-                        Canvas.SetRight(child, right);
-                        y += child.ActualHeight + spacing;
-                    }
-                }
-            };
-        }
-
-        // Wygodne skróty:
-        public static void Info(string message) => Push(message, "info");
-        public static void Success(string message) => Push(message, "success");
-        public static void Warning(string message) => Push(message, "warning");
-        public static void Error(string message) => Push(message, "error");
+        /// <summary>Pozycja wyświetlania tostów.</summary>
+        public static ToastPosition Position { get; set; } = ToastPosition.BottomCenter;
 
         /// <summary>
-        /// Czyści wszystkie aktualnie wyświetlane toasty (opcjonalnie).
+        /// Główna funkcja – dodaje ToastControl i układa wszystkie tosty
+        /// zgodnie z wybraną pozycją.
         /// </summary>
+        public static void Show(string message, string type = "info")
+            => RunOnUI(() =>
+            {
+                var shell = Application.Current.Windows.OfType<ShellWindow>().FirstOrDefault();
+                if (shell is null) return;
+
+                if (shell.FindName("ToastLayer") is not Canvas canvas) return;
+
+                var toast = new ToastControl(message ?? string.Empty, type ?? "info");
+                canvas.Children.Add(toast);
+
+                // Po dołączeniu kontrolki – ułóż wszystkie tosty na Canvasie
+                toast.Loaded += (_, __) => LayoutToasts(canvas);
+            });
+
+        /// <summary>Układanie wszystkich tostów na danym Canvasie.</summary>
+        private static void LayoutToasts(Canvas canvas)
+        {
+            if (canvas == null) return;
+
+            if (Position == ToastPosition.BottomCenter)
+            {
+                const double bottom = 24;
+                const double spacing = 10;
+
+                // Policz pozycje od dołu do góry, centrowane w poziomie
+                double curBottom = bottom;
+
+                foreach (FrameworkElement child in canvas.Children.OfType<FrameworkElement>())
+                {
+                    child.UpdateLayout();
+                    var left = (canvas.ActualWidth - child.ActualWidth) / 2.0;
+                    var top = canvas.ActualHeight - curBottom - child.ActualHeight;
+
+                    Canvas.SetLeft(child, left);
+                    Canvas.SetTop(child, top);
+
+                    curBottom += child.ActualHeight + spacing;
+                }
+            }
+            else // TopRight
+            {
+                const double top = 20, right = 20, spacing = 10;
+                double y = top;
+
+                foreach (FrameworkElement child in canvas.Children.OfType<FrameworkElement>())
+                {
+                    child.UpdateLayout();
+                    Canvas.SetTop(child, y);
+                    Canvas.SetRight(child, right);
+                    y += child.ActualHeight + spacing;
+                }
+            }
+        }
+
+        /// <summary>Wygodne skróty.</summary>
+        public static void Info(string message) => Show(message, "info");
+        public static void Success(string message) => Show(message, "success");
+        public static void Warning(string message) => Show(message, "warning");
+        public static void Error(string message) => Show(message, "error");
+
+        /// <summary>Czyści wszystkie aktualnie wyświetlane tosty.</summary>
         public static void Clear()
+            => RunOnUI(() =>
+            {
+                var shell = Application.Current.Windows.OfType<ShellWindow>().FirstOrDefault();
+                if (shell?.FindName("ToastLayer") is Canvas layer)
+                    layer.Children.Clear();
+            });
+
+        /// <summary>Zapewnia wykonanie akcji na wątku UI.</summary>
+        private static void RunOnUI(System.Action action)
         {
             var app = Application.Current;
             if (app is null) return;
 
-            void DoWork()
-            {
-                var shell = app.Windows.OfType<ShellWindow>().FirstOrDefault();
-                if (shell?.FindName("ToastLayer") is Panel layer)
-                    layer.Children.Clear();
-            }
-
             if (app.Dispatcher.CheckAccess())
-                DoWork();
+                action();
             else
-                app.Dispatcher.BeginInvoke((System.Action)DoWork);
+                app.Dispatcher.BeginInvoke(DispatcherPriority.Normal, action);
         }
     }
 }

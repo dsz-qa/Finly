@@ -7,23 +7,31 @@ namespace Finly.Services
 
     public static class ThemeService
     {
-        public static AppTheme Current { get; private set; } = AppTheme.Light;
+        public static AppTheme Current { get; private set; } = AppTheme.Dark;
 
         public static void Apply(AppTheme theme)
         {
             var app = Application.Current;
-            if (app == null) return;
+            if (app is null) return;
 
-            // usuń stare Theme dictionary
-            var old = app.Resources.MergedDictionaries
-                .FirstOrDefault(d => d.Source != null && d.Source.OriginalString.StartsWith("Themes/"));
-            if (old != null) app.Resources.MergedDictionaries.Remove(old);
+            // Usuń dotychczasowe motywy
+            var rd = app.Resources.MergedDictionaries;
+            var toRemove = rd.Where(d =>
+                    d.Source != null &&
+                    (d.Source.OriginalString.Contains("Themes/Dark.xaml") ||
+                     d.Source.OriginalString.Contains("Themes/Light.xaml")))
+                .ToList();
+            foreach (var d in toRemove) rd.Remove(d);
 
-            // dołóż nowe
-            var uri = new System.Uri(theme == AppTheme.Dark ? "Themes/Dark.xaml" : "Themes/Light.xaml", System.UriKind.Relative);
-            app.Resources.MergedDictionaries.Insert(0, new ResourceDictionary { Source = uri });
+            // Dodaj nowy
+            var uri = new System.Uri(theme == AppTheme.Dark ? "Themes/Dark.xaml" : "Themes/Light.xaml",
+                                     System.UriKind.Relative);
+            rd.Insert(0, new ResourceDictionary { Source = uri });
 
             Current = theme;
+
+            // (opcjonalnie) toast informacyjny:
+            ToastService.Success(theme == AppTheme.Dark ? "Włączono motyw ciemny." : "Włączono motyw jasny.");
         }
     }
 }

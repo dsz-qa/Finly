@@ -1,8 +1,22 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <SolidColorBrush x:Key="App.Background" Color="#F1F1F1"/>
-    <SolidColorBrush x:Key="App.Foreground" Color="#1F1F1F"/>
 
-    <SolidColorBrush x:Key="Nav.Background" Color="#E7EAEE"/>
-    <SolidColorBrush x:Key="Nav.Foreground" Color="#111315"/>
+	<SolidColorBrush x:Key="App.Background"     Color="#F7F7F7"/>
+	<SolidColorBrush x:Key="App.Foreground"     Color="#202020"/>
+
+	<SolidColorBrush x:Key="Surface.Background" Color="#FFFFFF"/>
+	<SolidColorBrush x:Key="Surface.Border"     Color="#DDDDDD"/>
+
+	<SolidColorBrush x:Key="Control.Background" Color="#FFFFFF"/>
+	<SolidColorBrush x:Key="Control.Foreground" Color="#202020"/>
+	<SolidColorBrush x:Key="Control.Border"     Color="#C7C7C7"/>
+
+	<!-- DODANE: zgodność z App.xaml -->
+	<SolidColorBrush x:Key="Border.Brush"       Color="#DDDDDD"/>
+	<SolidColorBrush x:Key="Button.Background"  Color="#EAEAEA"/>
+
+	<SolidColorBrush x:Key="Nav.Background"     Color="#202020"/>
+	<SolidColorBrush x:Key="Nav.Foreground"     Color="#FFFFFF"/>
+
+	<SolidColorBrush x:Key="Accent"             Color="#1976D2"/>
 </ResourceDictionary>

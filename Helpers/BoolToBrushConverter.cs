@@ -5,27 +5,19 @@ using System.Windows.Media;
 
 namespace Finly.Helpers
 {
-    /// <summary>
-    /// Konwerter: bool -> Brush
-    /// true  => TrueBrush
-    /// false => FalseBrush
-    /// </summary>
+    [ValueConversion(typeof(bool), typeof(Brush))]
     public sealed class BoolToBrushConverter : IValueConverter
     {
-        // Ustawienia domyślne, można nadpisać w XAML
         public Brush TrueBrush { get; set; } = Brushes.ForestGreen;
         public Brush FalseBrush { get; set; } = Brushes.IndianRed;
 
-        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             bool flag = value is bool b && b;
             return flag ? TrueBrush : FalseBrush;
         }
 
-        public object? ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            // Zwykle nie robimy konwersji wstecznej
-            return Binding.DoNothing;
-        }
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => Binding.DoNothing;
     }
 }

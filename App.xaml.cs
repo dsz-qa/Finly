@@ -1,19 +1,15 @@
 ﻿using System.Windows;
-using Finly.Views; // jeśli AuthWindow jest w Finly.Views
+using Finly.Views;
 
 namespace Finly
 {
     public partial class App : Application
     {
-        protected override void OnStartup(StartupEventArgs e)
+        private void Application_Startup(object sender, StartupEventArgs e)
         {
-            base.OnStartup(e);
-            var auth = new Finly.Views.AuthWindow();
-            Current.MainWindow = auth;
+            var auth = new AuthWindow();
+            this.MainWindow = auth;   // jedno główne okno
             auth.Show();
         }
-
     }
 }
-
-

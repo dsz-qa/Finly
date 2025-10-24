@@ -1,9 +1,15 @@
 ﻿<Window x:Class="Finly.Shell.ShellWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Finly Shell">
-		<Grid>
-			<Grid.RowDefinitions>
+        Title="Finly Shell"
+        WindowState="Maximized"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource App.Background}">
+
+    <Grid Background="{DynamicResource App.Background}">
+
+        <Grid.RowDefinitions>
 				<RowDefinition Height="Auto"/>
 				<RowDefinition Height="*"/>
 			</Grid.RowDefinitions>

@@ -1,14 +1,16 @@
-﻿using Finly.ViewModels;
+﻿using Finly.Services;
+using Finly.Shell;
+using Finly.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using Finly.Services;
-using Finly.Shell;
+using System.Windows.Media;
 
 namespace Finly.Views
 {
     public partial class AuthWindow : Window
     {
+        // Jeden, typowany skrót do VM (usunięta wcześniejsza dublująca definicja)
         private AuthViewModel VM => (AuthViewModel)DataContext;
 
         // --- stan do trybu fullscreen (bez ramek) ---
@@ -20,7 +22,62 @@ namespace Finly.Views
         {
             InitializeComponent();
             DataContext = new AuthViewModel(); // startowy VM
-            // Nie wywołujemy EnterFullscreen(); okno i tak startuje zmaksymalizowane dzięki stylowi w App.xaml
+            // Okno startuje zmaksymalizowane dzięki stylowi w App.xaml
+        }
+
+        // ===== Pasek tytułu: przeciąganie + przyciski =====
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Jeśli klik na przycisku – nie przeciągamy
+            if (IsInside<Button>(e.OriginalSource as DependencyObject))
+                return;
+
+            // Double–click na pasku = max / restore
+            if (e.ClickCount == 2)
+            {
+                MaxRestore_Click(sender, e);
+                return;
+            }
+
+            try { DragMove(); } catch { /* ignoruj sporadyczny InvalidOperation */ }
+        }
+
+        private void Minimize_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void MaxRestore_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = (WindowState == WindowState.Maximized)
+                ? WindowState.Normal
+                : WindowState.Maximized;
+        }
+
+        private void Close_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+
+        // (opcjonalnie) delikatny hover dla X
+        private void CloseButton_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (CloseGlyph != null) CloseGlyph.Foreground = Brushes.IndianRed;
+        }
+        private void CloseButton_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (CloseGlyph != null) CloseGlyph.Foreground = Brushes.WhiteSmoke;
+        }
+
+        // ===== Pomocnicze: czy źródło eventu jest wewnątrz danego typu (np. Button)?
+        private static bool IsInside<T>(DependencyObject? src) where T : DependencyObject
+        {
+            while (src != null)
+            {
+                if (src is T) return true;
+                src = VisualTreeHelper.GetParent(src);
+            }
+            return false;
         }
 
         // ====== Przełączanie paneli ======
@@ -28,39 +85,59 @@ namespace Finly.Views
         private void SwitchToLogin_Click(object sender, RoutedEventArgs e) => VM.SwitchToLogin();
 
         // ====== Logowanie ======
-
         private void LoginButton_Click(object sender, RoutedEventArgs e)
         {
-            // weź hasło z pola maskowanego lub jawnego (jak dotąd)
             var pwd = PwdLoginText.Visibility == Visibility.Visible ? PwdLoginText.Text : PwdLogin.Password;
 
-            // VM.Login powinno zwrócić true i wypełnić VM.LoggedInUserId
             if (VM.Login(pwd))
             {
-                // jeżeli VM nie ustawia LoggedInUserId, pobierz z bazy:
-                var userId = VM.LoggedInUserId != 0
-                    ? VM.LoggedInUserId
-                    : UserService.GetUserIdByUsername(VM.Username);
-
+                var userId = VM.LoggedInUserId != 0 ? VM.LoggedInUserId : UserService.GetUserIdByUsername(VM.Username);
                 OnLoginSuccess(userId);
             }
             else
             {
-                MessageBox.Show("Błędny login lub hasło.", "Logowanie",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                // NIC nie pokazujemy – VM ustawił LoginIsError + LoginMessage.
+                // Przesuń focus na login, żeby użytkownik od razu mógł poprawić.
+                LoginUsername.Focus();
+                LoginUsername.SelectAll();
             }
         }
+
+        // --- helper: reset komunikatu błędu logowania ---
+        private void ClearLoginError()
+        {
+            VM.LoginIsError = false;
+            VM.LoginMessage = string.Empty;
+        }
+
+        // Wywoływane, gdy wpisujesz login
+        private void LoginUsername_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ClearLoginError();
+        }
+
+        // Wywoływane, gdy wpisujesz hasło w PasswordBox (tryb ukryty)
+        private void PwdLogin_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            ClearLoginError();
+        }
+
+        // Wywoływane, gdy wpisujesz hasło w TextBox (tryb „Pokaż hasło”)
+        private void PwdLoginText_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ClearLoginError();
+        }
+
         private void OnLoginSuccess(int userId)
         {
-            UserService.CurrentUserId = userId;   // zapamiętaj kto zalogowany
+            UserService.CurrentUserId = userId;
 
-            var shell = new ShellWindow();         // start nowego layoutu
+            var shell = new ShellWindow();
             Application.Current.MainWindow = shell;
             shell.Show();
 
-            this.Close();                          // zamknij ekran logowania
+            Close();
         }
-
 
         // ====== Rejestracja ======
         private void RegisterButton_Click(object sender, RoutedEventArgs e)
@@ -72,77 +149,153 @@ namespace Finly.Views
 
             if (VM.Register(pwd, conf))
             {
-                // VM przełączył na login; schowaj jawne pola, jeżeli były aktywne
+                // po założeniu konta i przełączeniu na login – schowaj ewentualne jawne pola
                 RegShowPassword_Unchecked(null!, null!);
             }
         }
 
-        // ====== Pokaż/ukryj hasło – LOGIN ======
+        // ====== Pokaż/ukryj hasło – LOGIN (eventy) ======
         private void LoginShowPassword_Checked(object sender, RoutedEventArgs e)
         {
+            // przepisz zawartość i pokaż TextBox
             PwdLoginText.Text = PwdLogin.Password;
+
+            // ustaw widoczności i upewnij się, że TextBox jest na wierzchu
             PwdLogin.Visibility = Visibility.Collapsed;
+            Panel.SetZIndex(PwdLogin, 0);
+
             PwdLoginText.Visibility = Visibility.Visible;
+            Panel.SetZIndex(PwdLoginText, 1);
+
+            // fokus i kursor na koniec
             PwdLoginText.Focus();
             PwdLoginText.CaretIndex = PwdLoginText.Text.Length;
         }
 
         private void LoginShowPassword_Unchecked(object sender, RoutedEventArgs e)
         {
-            PwdLogin.Password = PwdLoginText.Text;
+            // przepisz z powrotem do PasswordBox
+            PwdLogin.Password = PwdLoginText.Text ?? string.Empty;
+
+            // przełącz widoczność i „warstwę”
             PwdLoginText.Visibility = Visibility.Collapsed;
+            Panel.SetZIndex(PwdLoginText, 0);
+
             PwdLogin.Visibility = Visibility.Visible;
+            Panel.SetZIndex(PwdLogin, 1);
+
+            // fokus do PasswordBox
             PwdLogin.Focus();
             PwdLogin.SelectAll();
         }
 
-        // ====== Pokaż/ukryj hasło – REJESTRACJA ======
-        private void RegShowPassword_Checked(object sender, RoutedEventArgs e)
-        {
-            PwdRegText.Text = PwdReg.Password;
-            PwdRegConfirmText.Text = PwdRegConfirm.Password;
 
-            PwdReg.Visibility = Visibility.Collapsed;
-            PwdRegConfirm.Visibility = Visibility.Collapsed;
-            PwdRegText.Visibility = Visibility.Visible;
-            PwdRegConfirmText.Visibility = Visibility.Visible;
+        // ====== Pokaż/ukryj hasło – REJESTRACJA (synchronizacja) ======
+        // Gdy checkbox w rejestracji zmienia widoczność pól, te handlery łączą ich treść z VM
+        // ====== Pokaż/ukryj hasło – REJESTRACJA (synchronizacja) ======
+        // Flaga anty-rekurencyjna (chroni przed zapętleniem, gdy przepisujemy tekst programowo)
+        private bool _syncingRegPasswords = false;
+
+        // pomocnicze: ustawienie tekstu w TextBox tylko gdy trzeba (z zachowaniem kursora)
+        private static void SetTextIfDifferent(TextBox tb, string value)
+        {
+            if (tb.Text == value) return;
+            tb.Text = value ?? string.Empty;
+            tb.CaretIndex = tb.Text.Length;
         }
 
-        private void RegShowPassword_Unchecked(object sender, RoutedEventArgs e)
+        // pomocnicze: ustawienie hasła w PasswordBox tylko gdy trzeba
+        private static void SetPasswordIfDifferent(PasswordBox pb, string value)
         {
-            PwdReg.Password = PwdRegText.Text;
-            PwdRegConfirm.Password = PwdRegConfirmText.Text;
-
-            PwdRegText.Visibility = Visibility.Collapsed;
-            PwdRegConfirmText.Visibility = Visibility.Collapsed;
-            PwdReg.Visibility = Visibility.Visible;
-            PwdRegConfirm.Visibility = Visibility.Visible;
+            if (pb.Password == (value ?? string.Empty)) return;
+            pb.Password = value ?? string.Empty;
         }
 
-        // ====== Live walidacja hasła (rejestracja) ======
+        // === Hasło (główne) ===
         private void PwdReg_PasswordChanged(object sender, RoutedEventArgs e)
         {
-            if (PwdRegText.Visibility != Visibility.Visible)
-                VM.UpdatePasswordHints(PwdReg.Password, PwdRegConfirm.Password);
-        }
+            if (_syncingRegPasswords) return;
+            _syncingRegPasswords = true;
 
-        private void PwdRegConfirm_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            if (PwdRegConfirmText.Visibility != Visibility.Visible)
-                VM.UpdatePasswordHints(PwdReg.Password, PwdRegConfirm.Password);
+            var val = ((PasswordBox)sender).Password;
+            if (VM.Password != val) VM.Password = val;
+
+            // jeśli widoczny TextBox, trzymaj z nim zgodność
+            if (PwdRegText.Visibility == Visibility.Visible)
+                SetTextIfDifferent(PwdRegText, val);
+
+            _syncingRegPasswords = false;
         }
 
         private void PwdRegText_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (PwdRegText.Visibility == Visibility.Visible)
-                VM.UpdatePasswordHints(PwdRegText.Text, PwdRegConfirmText.Text);
+            if (_syncingRegPasswords) return;
+            _syncingRegPasswords = true;
+
+            var val = ((TextBox)sender).Text;
+            if (VM.Password != val) VM.Password = val;
+
+            // jeśli ukryty PasswordBox jest aktywny, trzymaj zgodność
+            if (PwdReg.Visibility == Visibility.Visible)
+                SetPasswordIfDifferent(PwdReg, val);
+
+            _syncingRegPasswords = false;
+        }
+
+        // === Powtórz hasło ===
+        private void PwdRegConfirm_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_syncingRegPasswords) return;
+            _syncingRegPasswords = true;
+
+            var val = ((PasswordBox)sender).Password;
+            if (VM.RepeatPassword != val) VM.RepeatPassword = val;
+
+            if (PwdRegConfirmText.Visibility == Visibility.Visible)
+                SetTextIfDifferent(PwdRegConfirmText, val);
+
+            _syncingRegPasswords = false;
         }
 
         private void PwdRegConfirmText_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (PwdRegConfirmText.Visibility == Visibility.Visible)
-                VM.UpdatePasswordHints(PwdRegText.Text, PwdRegConfirmText.Text);
+            if (_syncingRegPasswords) return;
+            _syncingRegPasswords = true;
+
+            var val = ((TextBox)sender).Text;
+            if (VM.RepeatPassword != val) VM.RepeatPassword = val;
+
+            if (PwdRegConfirm.Visibility == Visibility.Visible)
+                SetPasswordIfDifferent(PwdRegConfirm, val);
+
+            _syncingRegPasswords = false;
         }
+
+
+        // Po włączeniu "Pokaż hasło" – przepisz z PasswordBox -> TextBox
+        private void RegShowPassword_Checked(object sender, RoutedEventArgs e)
+        {
+            // hasło główne
+            if (PwdRegText != null && PwdReg != null)
+                PwdRegText.Text = PwdReg.Password;
+
+            // powtórz hasło
+            if (PwdRegConfirmText != null && PwdRegConfirm != null)
+                PwdRegConfirmText.Text = PwdRegConfirm.Password;
+        }
+
+        // Po wyłączeniu "Pokaż hasło" – przepisz z TextBox -> PasswordBox
+        private void RegShowPassword_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // hasło główne
+            if (PwdRegText != null && PwdReg != null)
+                PwdReg.Password = PwdRegText.Text ?? string.Empty;
+
+            // powtórz hasło
+            if (PwdRegConfirmText != null && PwdRegConfirm != null)
+                PwdRegConfirm.Password = PwdRegConfirmText.Text ?? string.Empty;
+        }
+
 
         // ====== Skróty klawiatury ======
         private void Window_KeyDown(object? sender, KeyEventArgs e)
@@ -177,12 +330,12 @@ namespace Finly.Views
             else
                 EnterFullscreen();
         }
+
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            WindowState = WindowState.Maximized; // start na cały ekran
-            ResizeMode = ResizeMode.CanResize;  // pozwól zmieniać rozmiar / maksymalizować
+            WindowState = WindowState.Maximized;
+            ResizeMode = ResizeMode.CanResize;
         }
-
-
     }
 }
+

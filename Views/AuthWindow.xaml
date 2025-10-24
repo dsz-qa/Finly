@@ -2,140 +2,383 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:Finly.Helpers"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Logowanie / Rejestracja"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource App.Background}">
-	<Grid Background="{DynamicResource App.Background}" Margin="24">
+        Background="{DynamicResource App.Background}"
+        WindowStyle="None">
 
-<!-- ================== PANEL LOGOWANIA ================== -->
-        <StackPanel x:Name="LoginPanel"
+    <!-- ZASOBY OKNA (lokalne konwertery do przełączania widoczności) -->
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="LocBoolToVis"/>
+        <conv:InverseBoolToVisibilityConverter x:Key="LocInvBoolToVis"/>
+    </Window.Resources>
+
+    <!-- Utrzymuje możliwość zmiany rozmiaru po wyłączeniu systemowego paska -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="48"
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <!-- KONSTRUKCJA OKNA: wiersz 0 = czarny pasek, wiersz 1 = cała reszta -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===== CZARNY PASEK TYTUŁU ===== -->
+        <Grid Grid.Row="0" Background="#000000"
+              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEWA STRONA: logo + tytuł -->
+            <StackPanel Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Margin="12,0,0,0">
+                <Image Source="/Assets/Images/logoFinly.png"
+                Width="70" Height="70"
+                Stretch="Uniform"
+                Margin="0,0,8,0"
+                RenderOptions.BitmapScalingMode="HighQuality"
+                shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
+
+                <TextBlock Text="Logowanie / Rejestracja"
+                   Foreground="#EAEAEA"
+                   FontSize="14"
+                   VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <!-- Minimalizuj -->
+                <Button Width="46" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="{x:Null}"
+                        Click="Minimize_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="—" FontSize="16" VerticalAlignment="Center"
+                               HorizontalAlignment="Center" Foreground="#EAEAEA"/>
+                </Button>
+
+                <!-- Maksymalizuj / Przywróć -->
+                <Button Width="46" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="{x:Null}"
+                        Click="MaxRestore_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="⬜" FontSize="12" VerticalAlignment="Center"
+                               HorizontalAlignment="Center" Foreground="#EAEAEA"/>
+                </Button>
+
+                <!-- Zamknij -->
+                <Button Width="46" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="{x:Null}"
+                        Click="Close_Click"
+                        MouseEnter="CloseButton_MouseEnter"
+                        MouseLeave="CloseButton_MouseLeave"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock x:Name="CloseGlyph" Text="✕" FontSize="12"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Foreground="#EAEAEA"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- ===== TREŚĆ OKNA (panele logowania i rejestracji) ===== -->
+        <Grid Grid.Row="1" Background="{DynamicResource App.Background}" Margin="80">
+
+            <!-- ================== PANEL LOGOWANIA ================== -->
+            <StackPanel x:Name="LoginPanel"
                 Visibility="{Binding IsLoginMode, Converter={StaticResource BoolToVisibility}}"
-                VerticalAlignment="Center">
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                MinWidth="640"
+                Width="820"
+                MaxWidth="980">
 
-            <TextBlock Text="{Binding LoginBanner}"
-                       Foreground="{Binding LoginBannerBrush}"
-                       TextAlignment="Center"
-                       HorizontalAlignment="Center"
-                       Margin="0,0,0,8"/>
+                <!-- LOGO -->
+                <Image Source="/Assets/Images/logoFinly.png"
+                Width="400" Height="400"          
+                Stretch="Uniform"
+                HorizontalAlignment="Center"
+                Margin="0,0,0,20"
+                SnapsToDevicePixels="True"
+                RenderOptions.BitmapScalingMode="HighQuality"/>
+                <!-- Baner informacyjny -->
+                <TextBlock Text="{Binding LoginBanner}"
+                           Foreground="{Binding LoginBannerBrush}"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,12"
+                           FontSize="17"/>
 
-            <TextBlock Text="Login:"/>
-            <TextBox x:Name="LoginUsername"
-                     Margin="0,0,0,8"
-                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
+                <!-- Komunikat błędu logowania -->
+                <TextBlock Text="{Binding LoginMessage}"
+                           Foreground="IndianRed"
+                           FontSize="14"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Stretch"
+                           Margin="0,0,0,12"
+                           Visibility="{Binding LoginIsError, Converter={StaticResource BoolToVisibility}}"/>
 
-            <TextBlock Text="Hasło:"/>
-            <Grid>
-                <PasswordBox x:Name="PwdLogin"/>
-                <TextBox     x:Name="PwdLoginText" Visibility="Collapsed"/>
-            </Grid>
+                <!-- Login -->
+                <TextBlock Text="Login:" FontSize="15" Margin="0,0,0,6"/>
+                <TextBox x:Name="LoginUsername"
+                         Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="48"
+                         FontSize="15"
+                         Margin="0,0,0,14"
+                         TextChanged="LoginUsername_TextChanged">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding LoginIsError}" Value="True">
+                                    <Setter Property="BorderBrush" Value="#D9534F"/>
+                                    <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
 
-            <CheckBox Content="Pokaż hasło"
-                      Margin="0,2,0,8"
-                      Checked="LoginShowPassword_Checked"
-                      Unchecked="LoginShowPassword_Unchecked"/>
+                <!-- Hasło -->
+                <TextBlock Text="Hasło:" FontSize="15" Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,10">
+                    <!-- ukryte -->
+                    <PasswordBox x:Name="PwdLogin"
+                                 MinHeight="48"
+                                 FontSize="15"
+                                 PasswordChanged="PwdLogin_PasswordChanged">
+                        <PasswordBox.Style>
+                            <Style TargetType="PasswordBox" BasedOn="{StaticResource {x:Type PasswordBox}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding LoginIsError}" Value="True">
+                                        <Setter Property="BorderBrush" Value="#D9534F"/>
+                                        <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </PasswordBox.Style>
+                    </PasswordBox>
 
-            <Button Content="Zaloguj" Height="34" Click="LoginButton_Click"/>
+                    <!-- jawne (po Pokaż hasło) -->
+                    <TextBox x:Name="PwdLoginText"
+                             MinHeight="48"
+                             FontSize="15"
+                             Visibility="Collapsed"
+                             TextChanged="PwdLoginText_TextChanged">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding LoginIsError}" Value="True">
+                                        <Setter Property="BorderBrush" Value="#D9534F"/>
+                                        <Setter Property="BorderThickness" Value="0,0,0,2"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                </Grid>
 
-            <Separator Margin="0,14,0,8"/>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Text="Nie masz jeszcze konta?" Margin="0,0,8,0"/>
-                <Button Content="Zarejestruj się" Click="SwitchToRegister_Click"/>
+                <!-- Pokaż/ukryj hasło (tylko eventy: logowanie ma własną logikę) -->
+                <CheckBox Content="Pokaż hasło"
+                          Style="{StaticResource CheckBox.Accent}"
+                          Margin="0,0,0,18"
+                          FontSize="15"
+                          Checked="LoginShowPassword_Checked"
+                          Unchecked="LoginShowPassword_Unchecked"/>
+
+                <!-- Zaloguj -->
+                <Button x:Name="LoginBtn"
+                        Content="Zaloguj"
+                        Height="52"
+                        FontSize="16"
+                        Click="LoginButton_Click"
+                        IsDefault="True"/>
+
+                <Separator Margin="0,22,0,14"/>
+
+                <!-- Link do rejestracji -->
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Margin="0,2,0,0">
+                    <TextBlock Text="Nie masz jeszcze konta?"
+                               FontSize="15"
+                               VerticalAlignment="Center"/>
+                    <Button Content="Zarejestruj się"
+                            Click="SwitchToRegister_Click"
+                            Height="40"
+                            MinWidth="180"
+                            FontSize="15"
+                            Margin="12,0,0,0"/>
+                </StackPanel>
+
             </StackPanel>
-        </StackPanel>
+            <!-- ====== /PANEL LOGOWANIA ====== -->
 
-        <!-- ================== PANEL REJESTRACJI ================== -->
-        <StackPanel x:Name="RegisterPanel"
+
+            <!-- ================== PANEL REJESTRACJI ================== -->
+            <StackPanel x:Name="RegisterPanel"
                 Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"
-                VerticalAlignment="Center">
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                MinWidth="640"
+                Width="820"
+                MaxWidth="980">
 
-            <TextBlock Text="Login:"/>
-            <TextBox x:Name="RegUsername"
-                     Margin="0,0,0,8"
-                     Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
+                <!-- LOGO -->
+                <Image Source="/Assets/Images/logoFinly.png"
+                 Width="400" Height="400"      
+                 Stretch="Uniform"
+                 HorizontalAlignment="Center"
+                 Margin="0,0,0,20"
+                 SnapsToDevicePixels="True"
+                 RenderOptions.BitmapScalingMode="HighQuality"/>
 
-            <TextBlock Text="Hasło:"/>
-            <Grid>
-                <PasswordBox x:Name="PwdReg"          PasswordChanged="PwdReg_PasswordChanged"/>
-                <TextBox     x:Name="PwdRegText"      Visibility="Collapsed" TextChanged="PwdRegText_TextChanged"/>
-            </Grid>
+                <TextBlock Text="Login:" FontSize="15" Margin="0,0,0,6"/>
+                <TextBox x:Name="RegUsername"
+                         Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="48"
+                         FontSize="15"
+                         Margin="0,0,0,14"/>
 
-            <TextBlock Text="Powtórz hasło:"/>
-            <Grid>
-                <PasswordBox x:Name="PwdRegConfirm"     PasswordChanged="PwdRegConfirm_PasswordChanged"/>
-                <TextBox     x:Name="PwdRegConfirmText" Visibility="Collapsed" TextChanged="PwdRegConfirmText_TextChanged"/>
-            </Grid>
+                <TextBlock Text="Hasło:" FontSize="15" Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,14">
+                    <PasswordBox x:Name="PwdReg"
+                                 MinHeight="48"
+                                 FontSize="15"
+                                 PasswordChanged="PwdReg_PasswordChanged"
+                                 Visibility="{Binding IsPasswordVisible,
+                                                      Converter={StaticResource LocInvBoolToVis},
+                                                      FallbackValue=Visible}"/>
+                    <TextBox x:Name="PwdRegText"
+                             MinHeight="48"
+                             FontSize="15"
+                             Text="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="PwdRegText_TextChanged"
+                             Visibility="{Binding IsPasswordVisible,
+                                                  Converter={StaticResource LocBoolToVis},
+                                                  FallbackValue=Collapsed}"/>
+                </Grid>
 
-            <CheckBox Content="Pokaż hasło"
-                      Margin="0,2,0,8"
-                      Checked="RegShowPassword_Checked"
-                      Unchecked="RegShowPassword_Unchecked"/>
+                <TextBlock Text="Powtórz hasło:" FontSize="15" Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,14">
+                    <PasswordBox x:Name="PwdRegConfirm"
+                                 MinHeight="48"
+                                 FontSize="15"
+                                 PasswordChanged="PwdRegConfirm_PasswordChanged"
+                                 Visibility="{Binding IsPasswordVisible,
+                                                      Converter={StaticResource LocInvBoolToVis},
+                                                      FallbackValue=Visible}"/>
+                    <TextBox x:Name="PwdRegConfirmText"
+                             MinHeight="48"
+                             FontSize="15"
+                             Text="{Binding RepeatPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="PwdRegConfirmText_TextChanged"
+                             Visibility="{Binding IsPasswordVisible,
+                                                  Converter={StaticResource LocBoolToVis},
+                                                  FallbackValue=Collapsed}"/>
+                </Grid>
 
-            <!-- CHECKLISTA wymagań hasła -->
-            <!-- CHECKLISTA wymagań hasła -->
-            <StackPanel Margin="0,6,0,6">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Margin="0,0,6,0" FontWeight="Bold"
-                     Foreground="{Binding PwMinLen, Converter={StaticResource BoolToBrush}}"
-                     Text="{Binding PwMinLen, Converter={StaticResource BoolToSymbol}}"/>
-                <TextBlock Text="co najmniej 8 znaków"/>
+                <CheckBox Content="Pokaż hasło"
+                          Style="{StaticResource CheckBox.Accent}"
+                          IsChecked="{Binding IsPasswordVisible, Mode=TwoWay}"
+                          Margin="0,0,0,18"
+                          FontSize="15"/>
+
+                <!-- Lista wymagań hasła -->
+                <StackPanel Margin="0,4,0,12">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                                   Foreground="{Binding PwMinLen, Converter={StaticResource BoolToBrush}}"
+                                   Text="{Binding PwMinLen, Converter={StaticResource BoolToSymbol}}"/>
+                        <TextBlock Text="co najmniej 8 znaków" FontSize="13"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                                   Foreground="{Binding PwLower, Converter={StaticResource BoolToBrush}}"
+                                   Text="{Binding PwLower, Converter={StaticResource BoolToSymbol}}"/>
+                        <TextBlock Text="mała litera" FontSize="13"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                                   Foreground="{Binding PwUpper, Converter={StaticResource BoolToBrush}}"
+                                   Text="{Binding PwUpper, Converter={StaticResource BoolToSymbol}}"/>
+                        <TextBlock Text="wielka litera" FontSize="13"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                                   Foreground="{Binding PwDigit, Converter={StaticResource BoolToBrush}}"
+                                   Text="{Binding PwDigit, Converter={StaticResource BoolToSymbol}}"/>
+                        <TextBlock Text="cyfra" FontSize="13"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                                   Foreground="{Binding PwSpecial, Converter={StaticResource BoolToBrush}}"
+                                   Text="{Binding PwSpecial, Converter={StaticResource BoolToSymbol}}"/>
+                        <TextBlock Text="znak specjalny (np. !@#$%)" FontSize="13"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                                   Foreground="{Binding PwNoSpace, Converter={StaticResource BoolToBrush}}"
+                                   Text="{Binding PwNoSpace, Converter={StaticResource BoolToSymbol}}"/>
+                        <TextBlock Text="bez spacji" FontSize="13"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                                   Foreground="{Binding PwMatch, Converter={StaticResource BoolToBrush}}"
+                                   Text="{Binding PwMatch, Converter={StaticResource BoolToSymbol}}"/>
+                        <TextBlock Text="powtórzone hasło takie samo" FontSize="13"/>
+                    </StackPanel>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock 
-                        Foreground="{Binding PwLower,   Converter={StaticResource BoolToBrush}}"
-                        Text="{Binding PwLower,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
-                    <TextBlock Text="mała litera"/>
+                <!-- Komunikat rejestracji -->
+                <TextBlock Text="{Binding RegisterMessage}"
+                           Foreground="{Binding RegisterMessageBrush}"
+                           Margin="0,0,0,10"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center"
+                           FontSize="15"/>
+
+                <Button Content="Utwórz konto"
+                        Height="52"
+                        FontSize="16"
+                        Click="RegisterButton_Click"
+                        IsEnabled="{Binding CanRegister}"/>
+
+                <Separator Margin="0,22,0,14"/>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Margin="0,2,0,0">
+                    <TextBlock Text="Masz już konto?"
+                               FontSize="15"
+                               VerticalAlignment="Center"/>
+                    <Button Content="Wróć do logowania"
+                            Click="SwitchToLogin_Click"
+                            Height="40"
+                            MinWidth="180"
+                            FontSize="15"
+                            Margin="12,0,0,0"/>
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding PwUpper,   Converter={StaticResource BoolToBrush}}"
-               Text="{Binding PwUpper,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
-                    <TextBlock Text="wielka litera"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding PwDigit,   Converter={StaticResource BoolToBrush}}"
-               Text="{Binding PwDigit,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
-                    <TextBlock Text="cyfra"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding PwSpecial, Converter={StaticResource BoolToBrush}}"
-               Text="{Binding PwSpecial, Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
-                    <TextBlock Text="znak specjalny (np. !@#$%)"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding PwNoSpace, Converter={StaticResource BoolToBrush}}"
-               Text="{Binding PwNoSpace, Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
-                    <TextBlock Text="bez spacji"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Foreground="{Binding PwMatch,   Converter={StaticResource BoolToBrush}}"
-               Text="{Binding PwMatch,   Converter={StaticResource BoolToSymbol}}" FontWeight="Bold" Margin="0,0,6,0"/>
-                    <TextBlock Text="powtórzone hasło takie samo"/>
-                </StackPanel>
             </StackPanel>
+            <!-- ====== /PANEL REJESTRACJI ====== -->
 
+        </Grid>
+        <!-- ===== /TREŚĆ OKNA ===== -->
 
-            <TextBlock Text="{Binding RegisterMessage}"
-                       Foreground="{Binding RegisterMessageBrush}"
-                       Margin="0,6,0,2"
-                       HorizontalAlignment="Center"
-                       TextAlignment="Center"/>
-
-            <Button Content="Utwórz konto"
-                    Height="34"
-                    Click="RegisterButton_Click"
-                    IsEnabled="{Binding CanRegister}"/>
-
-            <Separator Margin="0,14,0,8"/>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Text="Masz już konto?" Margin="0,0,8,0"/>
-                <Button Content="Wróć do logowania" Click="SwitchToLogin_Click"/>
-            </StackPanel>
-        </StackPanel>
     </Grid>
 </Window>

@@ -22,6 +22,11 @@ namespace Finly.ViewModels
         private string _loginMessage = string.Empty;
         private bool _loginIsError;
 
+        // Widoczność oraz treść haseł (dla panelu rejestracji)
+        private bool _isPasswordVisible = false;          // domyślnie ukryte
+        private string _password = string.Empty;
+        private string _repeatPassword = string.Empty;
+
         // E-mail regex (culture-invariant)
         private static readonly Regex EmailRegex =
             new(@"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$",
@@ -48,6 +53,33 @@ namespace Finly.ViewModels
             }
         }
         public bool IsRegisterMode => !IsLoginMode;
+
+        // Rejestracja – widoczność haseł i treść
+        public bool IsPasswordVisible
+        {
+            get => _isPasswordVisible;
+            set => Set(ref _isPasswordVisible, value);
+        }
+
+        public string Password
+        {
+            get => _password;
+            set
+            {
+                if (Set(ref _password, value ?? string.Empty))
+                    UpdatePasswordHints(_password, _repeatPassword);
+            }
+        }
+
+        public string RepeatPassword
+        {
+            get => _repeatPassword;
+            set
+            {
+                if (Set(ref _repeatPassword, value ?? string.Empty))
+                    UpdatePasswordHints(_password, _repeatPassword);
+            }
+        }
 
         // Rejestracja – komunikat + kolor
         public string RegisterMessage
@@ -101,41 +133,13 @@ namespace Finly.ViewModels
         // ===== Wymagania hasła (live) =====
         private bool _pwMinLen, _pwLower, _pwUpper, _pwDigit, _pwSpecial, _pwNoSpace, _pwMatch;
 
-        public bool PwMinLen
-        {
-            get => _pwMinLen;
-            set { if (Set(ref _pwMinLen, value)) BumpPwAggregates(); }
-        }
-        public bool PwLower
-        {
-            get => _pwLower;
-            set { if (Set(ref _pwLower, value)) BumpPwAggregates(); }
-        }
-        public bool PwUpper
-        {
-            get => _pwUpper;
-            set { if (Set(ref _pwUpper, value)) BumpPwAggregates(); }
-        }
-        public bool PwDigit
-        {
-            get => _pwDigit;
-            set { if (Set(ref _pwDigit, value)) BumpPwAggregates(); }
-        }
-        public bool PwSpecial
-        {
-            get => _pwSpecial;
-            set { if (Set(ref _pwSpecial, value)) BumpPwAggregates(); }
-        }
-        public bool PwNoSpace
-        {
-            get => _pwNoSpace;
-            set { if (Set(ref _pwNoSpace, value)) BumpPwAggregates(); }
-        }
-        public bool PwMatch
-        {
-            get => _pwMatch;
-            set { if (Set(ref _pwMatch, value)) BumpPwAggregates(); }
-        }
+        public bool PwMinLen { get => _pwMinLen; set { if (Set(ref _pwMinLen, value)) BumpPwAggregates(); } }
+        public bool PwLower { get => _pwLower; set { if (Set(ref _pwLower, value)) BumpPwAggregates(); } }
+        public bool PwUpper { get => _pwUpper; set { if (Set(ref _pwUpper, value)) BumpPwAggregates(); } }
+        public bool PwDigit { get => _pwDigit; set { if (Set(ref _pwDigit, value)) BumpPwAggregates(); } }
+        public bool PwSpecial { get => _pwSpecial; set { if (Set(ref _pwSpecial, value)) BumpPwAggregates(); } }
+        public bool PwNoSpace { get => _pwNoSpace; set { if (Set(ref _pwNoSpace, value)) BumpPwAggregates(); } }
+        public bool PwMatch { get => _pwMatch; set { if (Set(ref _pwMatch, value)) BumpPwAggregates(); } }
 
         public bool IsPasswordValid =>
             PwMinLen && PwLower && PwUpper && PwDigit && PwSpecial && PwNoSpace && PwMatch;
@@ -158,6 +162,8 @@ namespace Finly.ViewModels
             ClearMessages();
             LoginBanner = string.Empty;
             LoginBannerBrush = Brushes.Transparent;
+            // reset widoczności hasła po przełączeniu
+            IsPasswordVisible = false;
         }
 
         public void SwitchToLogin()
@@ -166,6 +172,7 @@ namespace Finly.ViewModels
             ClearMessages();
             LoginBanner = string.Empty;
             LoginBannerBrush = Brushes.Transparent;
+            IsPasswordVisible = false;
         }
 
         public void ShowLogoutInfo()
@@ -271,8 +278,6 @@ namespace Finly.ViewModels
             PwSpecial = Regex.IsMatch(p, "[^\\w\\s]"); // znak spec. (nie litera/cyfra/whitespace)
             PwNoSpace = !Regex.IsMatch(p, "\\s");
             PwMatch = p == (confirm ?? string.Empty);
-
-            // agregaty odświeżane w setterach → tu nic więcej nie trzeba
         }
 
         // ===== Helpery =====

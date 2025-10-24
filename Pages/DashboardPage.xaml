@@ -2,89 +2,109 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-	<Grid Margin="10">
-		<Grid.RowDefinitions>
-			<RowDefinition Height="Auto" />
-			<RowDefinition Height="Auto" />
-			<RowDefinition Height="*" />
-			<RowDefinition Height="Auto" />
-		</Grid.RowDefinitions>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- KPI -->
+            <RowDefinition Height="Auto"/>
+            <!-- Filtry -->
+            <RowDefinition Height="*"/>
+            <!-- Lista -->
+            <RowDefinition Height="Auto"/>
+            <!-- Dolny pasek -->
+        </Grid.RowDefinitions>
 
-		<!-- Podsumowanie -->
-		<StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
-			<TextBlock Text="Suma wydatków: " FontWeight="Bold"/>
-			<TextBlock x:Name="TotalAmountText" Margin="5,0,20,0"/>
-			<TextBlock Text="Liczba wpisów: " FontWeight="Bold"/>
-			<TextBlock x:Name="EntryCountText" Margin="5,0,20,0"/>
-			<TextBlock Text="Średnia dzienna: " FontWeight="Bold"/>
-			<TextBlock x:Name="DailyAverageText" Margin="5,0,0,0"/>
-		</StackPanel>
+        <!-- ===== KPI ===== -->
+        <UniformGrid Grid.Row="0" Columns="3" Margin="0,0,0,12">
+            <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Suma wydatków" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="TotalAmountText" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
 
-		<!-- Filtry -->
-		<StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,10">
-			<ComboBox x:Name="CategoryFilterComboBox" Width="150" Margin="0,0,10,0" IsEditable="True" />
-			<DatePicker x:Name="FromDatePicker" Width="120" Margin="0,0,10,0" />
-			<DatePicker x:Name="ToDatePicker" Width="120" Margin="0,0,10,0" />
-			<Button Content="Filtruj" Width="80" Click="FilterButton_Click"/>
-		</StackPanel>
+            <Border Style="{StaticResource Card}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Liczba wpisów" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="EntryCountText" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
 
-		<!-- Lista -->
-		<ListView x:Name="ExpenseListView" Grid.Row="2">
-			<ListView.View>
-				<GridView>
-					<!-- Kwota 2 miejsca po przecinku -->
-					<GridViewColumn Header="Kwota"
-                                    DisplayMemberBinding="{Binding Amount, StringFormat={}{0:N2} zł}"
-                                    Width="110"/>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Średnia dzienna" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="DailyAverageText" FontSize="18" FontWeight="Bold" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
 
-					<GridViewColumn Header="Kategoria"
-                                    DisplayMemberBinding="{Binding Category}"
-                                    Width="150"/>
+        <!-- ===== FILTRY ===== -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal">
+                <ComboBox x:Name="CategoryFilterComboBox" Width="180" Margin="0,0,8,0" IsEditable="True"/>
+                <DatePicker x:Name="FromDatePicker" Width="140" Margin="0,0,8,0"/>
+                <DatePicker x:Name="ToDatePicker"   Width="140" Margin="0,0,8,0"/>
 
-					<GridViewColumn Header="Data"
-                                    DisplayMemberBinding="{Binding Date, StringFormat={}{0:yyyy-MM-dd}}"
-                                    Width="150"/>
+                <!-- Szukaj w opisie -->
+                <TextBox x:Name="QueryTextBox" Width="220" Margin="0,0,8,0"
+                         Style="{StaticResource WatermarkTextBox}"
+                         Tag="Szukaj w opisie…"/>
 
-					<GridViewColumn Header="Opis"
-                                    DisplayMemberBinding="{Binding Description}"
-                                    Width="250"/>
+                <Button Content="Filtruj"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="FilterButton_Click"/>
+                <Button Content="Wyczyść" Margin="8,0,0,0" Click="ClearFilters_Click"/>
+            </StackPanel>
+        </Border>
 
-					<!-- Akcje w wierszu -->
-					<GridViewColumn Header="Akcje" Width="160">
-						<GridViewColumn.CellTemplate>
-							<DataTemplate>
-								<StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-									<Button Content="Edytuj"
-                                            Padding="8,2"
-                                            Margin="0,0,6,0"
-                                            Tag="{Binding Id}"
-                                            Click="EditExpense_Click"/>
-									<Button Content="Usuń"
-                                            Padding="8,2"
-                                            Tag="{Binding Id}"
-                                            Click="DeleteExpense_Click"/>
-								</StackPanel>
-							</DataTemplate>
-						</GridViewColumn.CellTemplate>
-					</GridViewColumn>
-				</GridView>
-			</ListView.View>
-		</ListView>
+        <!-- ===== LISTA WYDATKÓW ===== -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <DataGrid x:Name="ExpenseGrid"
+                      AutoGenerateColumns="False"
+                      HeadersVisibility="Column"
+                      IsReadOnly="True"
+                      MouseDoubleClick="ExpenseGrid_MouseDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Data" Binding="{Binding Date, StringFormat={}{0:yyyy-MM-dd}}" Width="140"/>
+                    <DataGridTextColumn Header="Kategoria" Binding="{Binding Category}" Width="*"/>
+                    <DataGridTextColumn Header="Kwota" Binding="{Binding Amount, StringFormat={}{0:N2} zł}" Width="140"
+                                        ElementStyle="{StaticResource RightAlignedCell}"/>
+                    <DataGridTextColumn Header="Opis" Binding="{Binding Description}" Width="2*"/>
 
-		<!-- Dolny pasek akcji (POZA ListView!) -->
-		<StackPanel Orientation="Horizontal" Grid.Row="3" HorizontalAlignment="Left" Margin="0,10,0,0">
-			<Button Content="Dodaj" Width="100" Margin="0,0,10,0" Click="AddExpenseButton_Click"/>
-			<Button Content="Usuń zaznaczony" Width="130" Click="DeleteSelected_Click"/>
-		</StackPanel>
+                    <DataGridTemplateColumn Header="Akcje" Width="180">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Content="Edytuj" Padding="10,4" Margin="0,0,6,0"
+                                            Tag="{Binding Id}" Click="EditExpense_Click"/>
+                                    <Button Content="Usuń" Padding="10,4"
+                                            Tag="{Binding Id}" Click="DeleteExpense_Click"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
 
-		<Button Content="Wykres wydatków"
-                Grid.Row="3" HorizontalAlignment="Center" Width="150" Margin="0,10,0,0"
-                Click="ShowChart_Click"/>
+        <!-- ===== DOLNY PASEK ===== -->
+        <DockPanel Grid.Row="3" LastChildFill="False" Margin="0,8,0,0">
+            <!-- lewa -->
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <TextBox x:Name="QuickAddBox" Width="320" Margin="0,0,8,0"
+                         Style="{StaticResource WatermarkTextBox}"
+                         Tag="Szybkie dodawanie: np. 35,90 #zakupy @karta"/>
+                <Button Content="Dodaj"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="QuickAdd_Click"/>
+                <Button Content="Usuń zaznaczony" Margin="8,0,0,0"
+                        Click="DeleteSelected_Click"/>
+            </StackPanel>
 
-		<StackPanel Orientation="Horizontal" Grid.Row="3" HorizontalAlignment="Right" Margin="0,10,0,0">
-			<Button Content="Usuń konto" Click="DeleteAccount_Click"/>
-			<Button Content="Wyloguj" Margin="8,0,0,0" Click="LogoutButton_Click"/>
-		</StackPanel>
-	</Grid>
+            <!-- prawa -->
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                <Button Content="Wykres wydatków" Click="ShowChart_Click"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
 </UserControl>
-

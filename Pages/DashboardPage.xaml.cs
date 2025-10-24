@@ -16,9 +16,13 @@ namespace Finly.Pages
     public partial class DashboardPage : UserControl
     {
         private readonly int _userId;
-        private List<ExpenseDisplayModel> _expenses = new();
 
-        // Próba pobrania aktualnego userId z serwisu
+        // Pełny zestaw danych z bazy
+        private List<ExpenseDisplayModel> _allExpenses = new();
+
+        // Aktualnie filtrowany widok
+        private List<ExpenseDisplayModel> _currentView = new();
+
         public DashboardPage() : this(GetCurrentUserIdSafe()) { }
 
         public DashboardPage(int userId)
@@ -26,8 +30,11 @@ namespace Finly.Pages
             InitializeComponent();
             _userId = userId;
 
+            ExpenseGrid.MouseDoubleClick += ExpenseGrid_MouseDoubleClick;
+
             LoadExpenses();
             LoadCategories();
+            ApplyFiltersAndRefresh();
         }
 
         private static int GetCurrentUserIdSafe()
@@ -36,24 +43,19 @@ namespace Finly.Pages
             catch { return 0; }
         }
 
-        // ================== DOLNY PASEK – NAWIGACJA ==================
+        // ===== nawigacja (dół) =====
 
         private void AddExpenseButton_Click(object sender, RoutedEventArgs e)
-        {
-            (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("AddExpense");
-        }
+            => (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("AddExpense");
 
         private void ShowChart_Click(object sender, RoutedEventArgs e)
-        {
-            (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("Charts");
-        }
+            => (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("Charts");
 
         private void DeleteAccount_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new ConfirmDialog(
-                "Na pewno chcesz trwale usunąć konto wraz ze wszystkimi wydatkami i kategoriami?\n" +
-                "Tej operacji nie można cofnąć.");
-            dlg.Owner = Window.GetWindow(this);
+                "Na pewno chcesz trwale usunąć konto wraz ze wszystkimi wydatkami i kategoriami?\nTej operacji nie można cofnąć.")
+            { Owner = Window.GetWindow(this) };
 
             if (dlg.ShowDialog() == true && dlg.Result)
             {
@@ -66,10 +68,7 @@ namespace Finly.Pages
                     }
 
                     ToastService.Success("Konto zostało usunięte.");
-
-                    // Zamknij Shell i wróć do logowania
-                    var shell = Window.GetWindow(this) as Finly.Shell.ShellWindow;
-                    shell?.Close();
+                    (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.Close();
 
                     var auth = new AuthWindow();
                     if (auth.DataContext is AuthViewModel vm)
@@ -97,52 +96,90 @@ namespace Finly.Pages
             auth.Show();
         }
 
-        // ================== LISTA / FILTRY ==================
+        // ===== dane / filtry =====
 
         private void LoadExpenses()
         {
-            var expenses = new List<ExpenseDisplayModel>();
+            var list = new List<ExpenseDisplayModel>();
 
-            using (var connection = new SQLiteConnection(DatabaseService.ConnectionString))
-            {
-                connection.Open();
-                SchemaService.Ensure(connection);
+            using var connection = new SQLiteConnection(DatabaseService.ConnectionString);
+            connection.Open();
+            SchemaService.Ensure(connection);
 
-                const string query = @"
+            const string query = @"
 SELECT e.Id, e.Amount, e.Date, e.Description, c.Name
 FROM Expenses e
 LEFT JOIN Categories c ON e.CategoryId = c.Id
 WHERE e.UserId = @userId;";
 
-                using var command = new SQLiteCommand(query, connection);
-                command.Parameters.AddWithValue("@userId", _userId);
+            using var command = new SQLiteCommand(query, connection);
+            command.Parameters.AddWithValue("@userId", _userId);
 
-                using var reader = command.ExecuteReader();
-                while (reader.Read())
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                list.Add(new ExpenseDisplayModel
                 {
-                    expenses.Add(new ExpenseDisplayModel
-                    {
-                        Id = reader.GetInt32(0),
-                        Amount = reader.GetDouble(1),
-                        Date = DateTime.Parse(reader.GetString(2)), // ISO yyyy-MM-dd
-                        Description = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                        Category = reader.IsDBNull(4) ? "Brak kategorii" : reader.GetString(4),
-                        UserId = _userId
-                    });
-                }
+                    Id = reader.GetInt32(0),
+                    Amount = reader.GetDouble(1),
+                    Date = DateTime.Parse(reader.GetString(2)), // ISO yyyy-MM-dd
+                    Description = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                    Category = reader.IsDBNull(4) ? "Brak kategorii" : reader.GetString(4),
+                    UserId = _userId
+                });
             }
 
-            _expenses = expenses;
-            ExpenseListView.ItemsSource = _expenses;
+            _allExpenses = list;
+        }
 
-            TotalAmountText.Text = _expenses.Sum(e => e.Amount).ToString("0.00") + " zł";
-            EntryCountText.Text = _expenses.Count.ToString();
+        private void LoadCategories()
+        {
+            var categories = _allExpenses
+                .Select(e => e.Category)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct()
+                .OrderBy(c => c)
+                .ToList();
 
-            if (_expenses.Any())
+            CategoryFilterComboBox.ItemsSource = categories;
+        }
+
+        private void ApplyFiltersAndRefresh()
+        {
+            var selectedCategory = (CategoryFilterComboBox.Text ?? string.Empty).Trim();
+            DateTime? from = FromDatePicker.SelectedDate;
+            DateTime? to = ToDatePicker.SelectedDate;
+            var query = (QueryTextBox?.Text ?? string.Empty).Trim();
+
+            var filtered = _allExpenses.Where(exp =>
+                       (string.IsNullOrWhiteSpace(selectedCategory) || exp.Category == selectedCategory)
+                    && (!from.HasValue || exp.Date >= from.Value)
+                    && (!to.HasValue || exp.Date <= to.Value)
+                    && (string.IsNullOrWhiteSpace(query) ||
+                        (!string.IsNullOrWhiteSpace(exp.Description) &&
+                         exp.Description.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)))
+                    .OrderByDescending(e => e.Date)
+                    .ToList();
+
+            _currentView = filtered;
+            ExpenseGrid.ItemsSource = _currentView;
+
+            RefreshKpis(_currentView);
+        }
+
+        private void RefreshKpis(IReadOnlyCollection<ExpenseDisplayModel> set)
+        {
+            var total = set.Sum(e => e.Amount);
+            TotalAmountText.Text = $"{total:0.00} zł";
+            EntryCountText.Text = set.Count.ToString();
+
+            if (set.Count > 0)
             {
-                var days = (_expenses.Max(e => e.Date) - _expenses.Min(e => e.Date)).TotalDays + 1;
-                var average = _expenses.Sum(e => e.Amount) / days;
-                DailyAverageText.Text = $"{average:0.00} zł";
+                var min = set.Min(e => e.Date);
+                var max = set.Max(e => e.Date);
+                var days = (max - min).TotalDays + 1;
+                var avg = total / days;
+                DailyAverageText.Text = $"{avg:0.00} zł";
             }
             else
             {
@@ -150,33 +187,20 @@ WHERE e.UserId = @userId;";
             }
         }
 
-        private void LoadCategories()
-        {
-            var categories = _expenses
-                .Select(e => e.Category)
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Distinct()
-                .ToList();
+        private void FilterButton_Click(object sender, RoutedEventArgs e) => ApplyFiltersAndRefresh();
 
-            CategoryFilterComboBox.ItemsSource = categories;
+        private void ClearFilters_Click(object sender, RoutedEventArgs e)
+        {
+            CategoryFilterComboBox.SelectedItem = null;
+            CategoryFilterComboBox.Text = string.Empty;
+            FromDatePicker.SelectedDate = null;
+            ToDatePicker.SelectedDate = null;
+            if (QueryTextBox != null) QueryTextBox.Text = string.Empty;
+
+            ApplyFiltersAndRefresh();
         }
 
-        private void FilterButton_Click(object sender, RoutedEventArgs e)
-        {
-            var selectedCategory = (CategoryFilterComboBox.Text ?? string.Empty).Trim();
-            DateTime? from = FromDatePicker.SelectedDate;
-            DateTime? to = ToDatePicker.SelectedDate;
-
-            var filtered = _expenses.Where(exp =>
-                   (string.IsNullOrWhiteSpace(selectedCategory) || exp.Category == selectedCategory)
-                && (!from.HasValue || exp.Date >= from.Value)
-                && (!to.HasValue || exp.Date <= to.Value))
-                .ToList();
-
-            ExpenseListView.ItemsSource = filtered;
-        }
-
-        // ================== AKCJE NA WIERSZU ==================
+        // ===== akcje na wierszu =====
 
         private void EditExpense_Click(object sender, RoutedEventArgs e)
         {
@@ -193,6 +217,7 @@ WHERE e.UserId = @userId;";
 
                 LoadExpenses();
                 LoadCategories();
+                ApplyFiltersAndRefresh();
             }
         }
 
@@ -200,45 +225,53 @@ WHERE e.UserId = @userId;";
         {
             if (sender is Button btn && btn.Tag is int id)
             {
-                var dlg = new ConfirmDialog("Czy na pewno chcesz usunąć ten wydatek?");
-                dlg.Owner = Window.GetWindow(this);
+                var dlg = new ConfirmDialog("Czy na pewno chcesz usunąć ten wydatek?")
+                { Owner = Window.GetWindow(this) };
 
                 if (dlg.ShowDialog() == true && dlg.Result)
                 {
                     DatabaseService.DeleteExpense(id);
                     ToastService.Success("Usunięto wydatek.");
+
                     LoadExpenses();
                     LoadCategories();
+                    ApplyFiltersAndRefresh();
                 }
             }
         }
 
         private void DeleteSelected_Click(object sender, RoutedEventArgs e)
         {
-            if (ExpenseListView.SelectedItem is ExpenseDisplayModel item)
+            if (ExpenseGrid.SelectedItem is ExpenseDisplayModel item)
             {
-                var dlg = new Finly.Views.ConfirmDialog("Czy na pewno chcesz usunąć ten wydatek?");
-                dlg.Owner = Window.GetWindow(this);
+                var dlg = new ConfirmDialog("Czy na pewno chcesz usunąć ten wydatek?")
+                { Owner = Window.GetWindow(this) };
+
                 if (dlg.ShowDialog() == true && dlg.Result)
                 {
-                    DatabaseService.DeleteExpense(item.Id); // <-- tu był błąd (id -> item.Id)
+                    DatabaseService.DeleteExpense(item.Id);
                     ToastService.Success("Usunięto wydatek.");
+
                     LoadExpenses();
                     LoadCategories();
+                    ApplyFiltersAndRefresh();
                 }
+            }
+            else
+            {
+                ToastService.Info("Zaznacz wiersz, który chcesz usunąć.");
             }
         }
 
-
-        // (opcjonalnie) double-click ↔ edycja
-        private void ExpenseListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        // Double-click na wierszu -> edycja
+        private void ExpenseGrid_MouseDoubleClick(object? sender, MouseButtonEventArgs e)
         {
-            if (ExpenseListView.SelectedItem is ExpenseDisplayModel selectedExpense)
+            if (ExpenseGrid.SelectedItem is ExpenseDisplayModel selected)
             {
-                var fullExpense = DatabaseService.GetExpenseById(selectedExpense.Id);
-                if (fullExpense is null) return;
+                var full = DatabaseService.GetExpenseById(selected.Id);
+                if (full is null) return;
 
-                var editView = new EditExpenseView(fullExpense, _userId)
+                var editView = new EditExpenseView(full, _userId)
                 {
                     Owner = Window.GetWindow(this)
                 };
@@ -246,7 +279,23 @@ WHERE e.UserId = @userId;";
 
                 LoadExpenses();
                 LoadCategories();
+                ApplyFiltersAndRefresh();
             }
+        }
+
+        // (stub) szybkie dodawanie z pola QuickAddBox – działa jako komunikat,
+        // żeby nie blokowało kompilacji; możesz tu potem dodać własny parser.
+        private void QuickAdd_Click(object sender, RoutedEventArgs e)
+        {
+            var text = QuickAddBox?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                ToastService.Info("Wpisz kwotę i opcjonalny opis (np. 35,90 #zakupy).");
+                return;
+            }
+
+            ToastService.Info("Szybkie dodawanie: jeszcze chwila — wstaw tu parser i zapis do bazy 😊");
+            QuickAddBox.Text = string.Empty;
         }
     }
 }

@@ -7,9 +7,11 @@ namespace Finly
     {
         private void Application_Startup(object sender, StartupEventArgs e)
         {
+            // Jedno główne okno (brak StartupUri w App.xaml, żeby nie było dwóch okien)
             var auth = new AuthWindow();
-            this.MainWindow = auth;   // jedno główne okno
+            MainWindow = auth;
             auth.Show();
         }
     }
 }
+

@@ -2,115 +2,122 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Finly"
-        WindowStyle="None"
-        WindowState="Maximized"
+        Title="Finly" WindowStyle="None" WindowState="Maximized"
         Background="{DynamicResource App.Background}">
-
-    <!-- Utrzymanie możliwości przeciągania i zmiany rozmiaru po wyłączeniu systemowego paska -->
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="48"
-                            ResizeBorderThickness="6"
-                            CornerRadius="0"
-                            UseAeroCaptionButtons="False"/>
+                        ResizeBorderThickness="6"
+                        CornerRadius="0"
+                        UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
 
-    <!-- SIATKA GŁÓWNA: 0 = pasek tytułu, 1 = zawartość -->
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="70"/>
+            <RowDefinition Height="48"/>
+            <!-- pasek tytułu = 48 -->
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ===== PASEK TYTUŁU (czarny) ===== -->
-        <Grid Grid.Row="0" Background="#000000"
-              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <!-- Pasek tytułu -->
+        <Grid Grid.Row="0" Background="{DynamicResource TitleBar.Background}"
+          MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- lewa: logo + tytuł -->
+            <!-- Logo + nazwa -->
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                <Image Source="/Assets/Images/logoFinly.png"
-                       Width="70" Height="70" Stretch="Uniform"
-                       Margin="0,0,8,0"
-                       RenderOptions.BitmapScalingMode="HighQuality"
-                       shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
-
+                <Ellipse Width="15" Height="15" Fill="{DynamicResource Brand.Orange}"/>
+                <TextBlock Text="  Finly" Foreground="{DynamicResource App.Foreground}" FontWeight="SemiBold"/>
             </StackPanel>
 
-            <!-- prawa: przyciski okna -->
+            <!-- Przyciski okna -->
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Width="46" Height="48"
-                        Background="Transparent" BorderBrush="{x:Null}"
-                        Click="Minimize_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="—" FontSize="16" Foreground="#EAEAEA"
-                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <Button Width="32" Height="32" Background="Transparent" BorderBrush="{x:Null}"
+                Click="Minimize_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="—" Foreground="{DynamicResource App.Foreground}" FontSize="16"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
-                <Button Width="46" Height="48"
-                        Background="Transparent" BorderBrush="{x:Null}"
-                        Click="MaxRestore_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="⬜" FontSize="12" Foreground="#EAEAEA"
-                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <Button Width="32" Height="32" Background="Transparent" BorderBrush="{x:Null}"
+                Click="MaxRestore_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="□" Foreground="{DynamicResource App.Foreground}" FontSize="14"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
-                <Button Width="46" Height="48"
-                        Background="Transparent" BorderBrush="{x:Null}"
-                        Click="Close_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="✕" FontSize="12" Foreground="#EAEAEA"
-                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                <Button Width="32" Height="32" Background="Transparent" BorderBrush="{x:Null}"
+                Click="Close_Click" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="✕" Foreground="{DynamicResource App.Foreground}" FontSize="14"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
             </StackPanel>
         </Grid>
-        <!-- ===== /PASEK TYTUŁU ===== -->
 
-        <!-- ===== ZAWARTOŚĆ OKNA ===== -->
-        <Grid Grid.Row="1" Background="{DynamicResource App.Background}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+        <!-- Główna siatka: sidebar | separator | content -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240"/>
+                <ColumnDefinition Width="2"/>
+                <!-- separator -->
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-            <!-- górny pasek nawigacyjny (Twój) -->
-            <Border Grid.Row="0" Style="{StaticResource NavBar}">
+            <!-- SIDEBAR -->
+            <Border Grid.Column="0" Background="{DynamicResource Sidebar.Background}">
                 <DockPanel LastChildFill="True">
-                    <TextBlock Text="FINLY"
-                               Foreground="{DynamicResource Nav.Foreground}"
-                               FontWeight="Bold" Margin="16,0"
-                               VerticalAlignment="Center"
-                               DockPanel.Dock="Left"/>
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Left"
-                                DockPanel.Dock="Left">
-                        <Button Content="Panel główny" Margin="8,16" Padding="18,10" Click="Nav_Dashboard_Click"/>
-                        <Button Content="Dodaj wydatek" Margin="8,16" Padding="18,10" Click="Nav_Add_Click"/>
-                        <Button Content="Wykresy"        Margin="8,16" Padding="18,10" Click="Nav_Charts_Click"/>
-                        <Button Content="Kategorie"      Margin="8,16" Padding="18,10" Click="Nav_Categories_Click"/>
-                        <Button Content="Ustawienia"     Margin="8,16" Padding="18,10" Click="Nav_Settings_Click"/>
+                    <!-- Góra: logo i nazwa -->
+                    <StackPanel DockPanel.Dock="Top" Margin="16,16,16,8">
+                        <Ellipse Width="48" Height="48" Fill="{DynamicResource Brand.Orange}"/>
+                        <TextBlock Text="Finly" Margin="0,8,0,0" FontSize="18" FontWeight="Bold"
+                       Foreground="{DynamicResource Sidebar.Foreground}"/>
+                        <Separator Margin="0,12,0,8" Background="{DynamicResource Surface.Border}"/>
                     </StackPanel>
-                    <Button Content="Wyloguj"
-                            Margin="8,16" Padding="18,10"
-                            DockPanel.Dock="Right"
-                            Click="Nav_Logout_Click"/>
+
+                    <!-- Środek: nawigacja -->
+                    <StackPanel Margin="8,0,8,8" x:Name="NavContainer">
+                        <!-- Uwaga: NavButton/PrimaryButton powinny być w Styles -->
+                        <ToggleButton x:Name="NavDashboard" Style="{StaticResource NavButton}"
+                          Content="Panel główny" IsChecked="True"
+                          Click="Nav_Dashboard_Click"/>
+                        <ToggleButton x:Name="NavAdd" Style="{StaticResource NavButton}"
+                          Content="Dodaj wydatek" Click="Nav_Add_Click"/>
+                        <ToggleButton x:Name="NavCharts" Style="{StaticResource NavButton}"
+                          Content="Wykresy" Click="Nav_Charts_Click"/>
+                        <ToggleButton x:Name="NavCategories" Style="{StaticResource NavButton}"
+                          Content="Kategorie" Click="Nav_Categories_Click"/>
+                        <ToggleButton x:Name="NavSettings" Style="{StaticResource NavButton}"
+                          Content="Ustawienia" Click="Nav_Settings_Click"/>
+                    </StackPanel>
+
+                    <!-- Dół: wyloguj -->
+                    <StackPanel DockPanel.Dock="Bottom" Margin="8,8,8,16">
+                        <Separator Margin="0,8,0,12" Background="{DynamicResource Surface.Border}"/>
+                        <Button Content="Wyloguj" Style="{StaticResource PrimaryButton}"
+                    Click="Nav_Logout_Click"/>
+                    </StackPanel>
                 </DockPanel>
             </Border>
 
-            <!-- host na strony -->
-            <Border Grid.Row="1" Background="{DynamicResource App.Background}">
-                <ContentControl x:Name="RightHost"/>
-            </Border>
+            <!-- Separator (pomarańczowy) -->
+            <Border Grid.Column="1" Background="{DynamicResource Separator.Orange}"/>
 
-            <!-- toasty (na wierzchu, dół/środek) -->
-            <Canvas x:Name="ToastLayer"
-                    Grid.Row="1"
-                    IsHitTestVisible="False"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Bottom"
-                    Margin="0,24,0,24"/>
+            <!-- PRAWA STRONA (content) -->
+            <Grid Grid.Column="2" Background="{DynamicResource App.Background}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Pasek nad treścią -->
+                <Border Grid.Row="0" Background="{DynamicResource Surface.Background}"
+                BorderBrush="{DynamicResource Surface.Border}" BorderThickness="0,0,0,1" Padding="16,10">
+                    <TextBlock Text="Aplikacja do zarządzania finansami"
+                     Foreground="{DynamicResource App.Foreground}" FontWeight="SemiBold"/>
+                </Border>
+
+                <!-- Gospodarz zawartości -->
+                <ContentControl x:Name="RightHost" Grid.Row="1"/>
+            </Grid>
         </Grid>
-        <!-- ===== /ZAWARTOŚĆ OKNA ===== -->
     </Grid>
 </Window>
+

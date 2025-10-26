@@ -1,9 +1,10 @@
 ﻿using Finly.Pages;   // DashboardPage, AddExpensePage, ChartsPage, CategoriesPage, SettingsPage
+using Finly.Services;     // UserService
+using Finly.ViewModels;   // AuthViewModel
+using Finly.Views;        // AuthWindow
 using System.Windows;
 using System.Windows.Controls;
-using Finly.Services;     // UserService
-using Finly.Views;        // AuthWindow
-using Finly.ViewModels;   // AuthViewModel
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 
 
@@ -33,16 +34,42 @@ namespace Finly.Shell
         }
 
         // --- GÓRNE MENU ---
-        private void Nav_Dashboard_Click(object sender, RoutedEventArgs e) => NavigateTo("Dashboard");
-        private void Nav_Add_Click(object sender, RoutedEventArgs e) => NavigateTo("AddExpense");
-        private void Nav_Charts_Click(object sender, RoutedEventArgs e) => NavigateTo("Charts");
-        private void Nav_Categories_Click(object sender, RoutedEventArgs e) => NavigateTo("Categories");
-        private void Nav_Settings_Click(object sender, RoutedEventArgs e) => NavigateTo("Settings");
+        private void Nav_Dashboard_Click(object sender, RoutedEventArgs e)
+        {
+            SetActive(NavDashboard);
+            NavigateTo("Dashboard");
+        }
+
+        private void Nav_Add_Click(object sender, RoutedEventArgs e)
+        {
+            SetActive(NavAdd);
+            NavigateTo("AddExpense");
+        }
+
+        private void Nav_Charts_Click(object sender, RoutedEventArgs e)
+        {
+            SetActive(NavCharts);
+            NavigateTo("Charts");
+        }
+
+        private void Nav_Categories_Click(object sender, RoutedEventArgs e)
+        {
+            SetActive(NavCategories);
+            NavigateTo("Categories");
+        }
+
+        private void Nav_Settings_Click(object sender, RoutedEventArgs e)
+        {
+            SetActive(NavSettings);
+            NavigateTo("Settings");
+        }
+
         private void Nav_Logout_Click(object sender, RoutedEventArgs e)
         {
-            // tutaj Twoja logika wylogowania/otwarcia AuthWindow
-            Close();
+            // jak dotychczas – powrót do AuthWindow
+            Logout_Click(sender, e);
         }
+
         private void Logout_Click(object sender, RoutedEventArgs e)
         {
             // wyczyść sesję/logowanie
@@ -79,6 +106,16 @@ namespace Finly.Shell
 
         private void Close_Click(object sender, RoutedEventArgs e)
             => Close();
+
+        private void SetActive(params ToggleButton[] toActivate)
+        {
+            // odznacz wszystkie ToggleButtony z kontenera nawigacji
+            foreach (var child in NavContainer.Children)
+                if (child is ToggleButton tb) tb.IsChecked = false;
+
+            foreach (var tb in toActivate) tb.IsChecked = true;
+        }
+
 
     }
 }

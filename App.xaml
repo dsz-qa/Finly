@@ -25,6 +25,7 @@
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
 
             <!-- Globalne defaulty -->
+
             <Style TargetType="Window">
                 <Setter Property="Background" Value="{DynamicResource App.Background}"/>
                 <Setter Property="Foreground" Value="{DynamicResource App.Foreground}"/>

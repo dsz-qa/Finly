@@ -25,4 +25,11 @@
     <SolidColorBrush x:Key="Sidebar.Bg" Color="#FFF2E3"/>
     <SolidColorBrush x:Key="Sidebar.Fg" Color="#1A1D22"/>
 
+    <!-- Scrollbar – light -->
+    <SolidColorBrush x:Key="ScrollBar.Track"      Color="#E6E1DA"/>
+    <!-- beżowy tor -->
+    <SolidColorBrush x:Key="ScrollBar.Thumb"      Color="#CFC9C0"/>
+    <SolidColorBrush x:Key="ScrollBar.ThumbHover" Color="#BFB8AE"/>
+
+
 </ResourceDictionary>

@@ -26,7 +26,7 @@
     <!-- KONSTRUKCJA OKNA: wiersz 0 = czarny pasek, wiersz 1 = cała reszta -->
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="70"/>
+            <RowDefinition Height="45"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -43,7 +43,7 @@
                 VerticalAlignment="Center"
                 Margin="12,0,0,0">
                 <Image Source="/Assets/Images/logoFinly.png"
-                Width="70" Height="70"
+                Width="40" Height="40"
                 Stretch="Uniform"
                 Margin="0,0,8,0"
                 RenderOptions.BitmapScalingMode="HighQuality"
@@ -89,26 +89,31 @@
         </Grid>
 
         <!-- ===== TREŚĆ OKNA (panele logowania i rejestracji) ===== -->
-        <Grid Grid.Row="1" Background="{DynamicResource App.Background}" Margin="80">
 
-            <!-- ================== PANEL LOGOWANIA ================== -->
+        <ScrollViewer Grid.Row="1"
+              VerticalScrollBarVisibility="Auto"
+              HorizontalScrollBarVisibility="Disabled">
+            <Grid Background="{DynamicResource App.Background}" Margin="24">
+
+
+                <!-- ================== PANEL LOGOWANIA ================== -->
             <StackPanel x:Name="LoginPanel"
                 Visibility="{Binding IsLoginMode, Converter={StaticResource BoolToVisibility}}"
                 VerticalAlignment="Center"
                 HorizontalAlignment="Center"
-                MinWidth="640"
-                Width="820"
-                MaxWidth="980">
+                MinWidth="480"
+                MaxWidth="780">
 
                 <!-- LOGO -->
-                <Image Source="/Assets/Images/logoFinly.png"
-                Width="400" Height="400"          
-                Stretch="Uniform"
-                HorizontalAlignment="Center"
-                Margin="0,0,0,20"
-                SnapsToDevicePixels="True"
-                RenderOptions.BitmapScalingMode="HighQuality"/>
-                <!-- Baner informacyjny -->
+                    <Image Source="/Assets/Images/logoFinly.png"
+                    MaxWidth="300" MaxHeight="300"
+                    Stretch="Uniform"
+                    HorizontalAlignment="Center"
+                    Margin="0,0,0,20"
+                    SnapsToDevicePixels="True"
+                    RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                    <!-- Baner informacyjny -->
                 <TextBlock Text="{Binding LoginBanner}"
                            Foreground="{Binding LoginBannerBrush}"
                            TextAlignment="Center"
@@ -129,7 +134,7 @@
                 <TextBlock Text="Login:" FontSize="15" Margin="0,0,0,6"/>
                 <TextBox x:Name="LoginUsername"
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                         MinHeight="48"
+                         MinHeight="42"
                          FontSize="15"
                          Margin="0,0,0,14"
                          TextChanged="LoginUsername_TextChanged">
@@ -150,7 +155,7 @@
                 <Grid Margin="0,0,0,10">
                     <!-- ukryte -->
                     <PasswordBox x:Name="PwdLogin"
-                                 MinHeight="48"
+                                 MinHeight="42"
                                  FontSize="15"
                                  PasswordChanged="PwdLogin_PasswordChanged">
                         <PasswordBox.Style>
@@ -167,7 +172,7 @@
 
                     <!-- jawne (po Pokaż hasło) -->
                     <TextBox x:Name="PwdLoginText"
-                             MinHeight="48"
+                             MinHeight="42"
                              FontSize="15"
                              Visibility="Collapsed"
                              TextChanged="PwdLoginText_TextChanged">
@@ -227,37 +232,37 @@
                 Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"
                 VerticalAlignment="Center"
                 HorizontalAlignment="Center"
-                MinWidth="640"
-                Width="820"
-                MaxWidth="980">
+                MinWidth="480"
+                MaxWidth="780">
 
                 <!-- LOGO -->
-                <Image Source="/Assets/Images/logoFinly.png"
-                 Width="400" Height="400"      
-                 Stretch="Uniform"
-                 HorizontalAlignment="Center"
-                 Margin="0,0,0,20"
-                 SnapsToDevicePixels="True"
-                 RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <Image Source="/Assets/Images/logoFinly.png"
+                    MaxWidth="220" MaxHeight="220"
+                    Stretch="Uniform"
+                    HorizontalAlignment="Center"
+                    Margin="0,0,0,20"
+                    SnapsToDevicePixels="True"
+                    RenderOptions.BitmapScalingMode="HighQuality"/>
 
-                <TextBlock Text="Login:" FontSize="15" Margin="0,0,0,6"/>
+
+                    <TextBlock Text="Login:" FontSize="15" Margin="0,0,0,6"/>
                 <TextBox x:Name="RegUsername"
                          Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
-                         MinHeight="48"
+                         MinHeight="42"
                          FontSize="15"
                          Margin="0,0,0,14"/>
 
                 <TextBlock Text="Hasło:" FontSize="15" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,14">
                     <PasswordBox x:Name="PwdReg"
-                                 MinHeight="48"
+                                 MinHeight="42"
                                  FontSize="15"
                                  PasswordChanged="PwdReg_PasswordChanged"
                                  Visibility="{Binding IsPasswordVisible,
                                                       Converter={StaticResource LocInvBoolToVis},
                                                       FallbackValue=Visible}"/>
                     <TextBox x:Name="PwdRegText"
-                             MinHeight="48"
+                             MinHeight="42"
                              FontSize="15"
                              Text="{Binding Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              TextChanged="PwdRegText_TextChanged"
@@ -269,14 +274,14 @@
                 <TextBlock Text="Powtórz hasło:" FontSize="15" Margin="0,0,0,6"/>
                 <Grid Margin="0,0,0,14">
                     <PasswordBox x:Name="PwdRegConfirm"
-                                 MinHeight="48"
+                                 MinHeight="42"
                                  FontSize="15"
                                  PasswordChanged="PwdRegConfirm_PasswordChanged"
                                  Visibility="{Binding IsPasswordVisible,
                                                       Converter={StaticResource LocInvBoolToVis},
                                                       FallbackValue=Visible}"/>
                     <TextBox x:Name="PwdRegConfirmText"
-                             MinHeight="48"
+                             MinHeight="42"
                              FontSize="15"
                              Text="{Binding RepeatPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              TextChanged="PwdRegConfirmText_TextChanged"
@@ -292,58 +297,68 @@
                           FontSize="15"/>
 
                 <!-- Lista wymagań hasła -->
-                <StackPanel Margin="0,4,0,12">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
-                                   Foreground="{Binding PwMinLen, Converter={StaticResource BoolToBrush}}"
-                                   Text="{Binding PwMinLen, Converter={StaticResource BoolToSymbol}}"/>
-                        <TextBlock Text="co najmniej 8 znaków" FontSize="13"/>
-                    </StackPanel>
+                    <!-- Lista wymagań hasła (dwie kolumny) -->
+                    <Grid Margin="0,4,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
-                                   Foreground="{Binding PwLower, Converter={StaticResource BoolToBrush}}"
-                                   Text="{Binding PwLower, Converter={StaticResource BoolToSymbol}}"/>
-                        <TextBlock Text="mała litera" FontSize="13"/>
-                    </StackPanel>
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                 Foreground="{Binding PwMinLen, Converter={StaticResource BoolToBrush}}"
+                 Text="{Binding PwMinLen, Converter={StaticResource BoolToSymbol}}"/>
+                                <TextBlock Text="co najmniej 8 znaków" FontSize="13"/>
+                            </StackPanel>
 
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
-                                   Foreground="{Binding PwUpper, Converter={StaticResource BoolToBrush}}"
-                                   Text="{Binding PwUpper, Converter={StaticResource BoolToSymbol}}"/>
-                        <TextBlock Text="wielka litera" FontSize="13"/>
-                    </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                 Foreground="{Binding PwLower, Converter={StaticResource BoolToBrush}}"
+                 Text="{Binding PwLower, Converter={StaticResource BoolToSymbol}}"/>
+                                <TextBlock Text="mała litera" FontSize="13"/>
+                            </StackPanel>
 
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
-                                   Foreground="{Binding PwDigit, Converter={StaticResource BoolToBrush}}"
-                                   Text="{Binding PwDigit, Converter={StaticResource BoolToSymbol}}"/>
-                        <TextBlock Text="cyfra" FontSize="13"/>
-                    </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                 Foreground="{Binding PwUpper, Converter={StaticResource BoolToBrush}}"
+                 Text="{Binding PwUpper, Converter={StaticResource BoolToSymbol}}"/>
+                                <TextBlock Text="wielka litera" FontSize="13"/>
+                            </StackPanel>
 
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
-                                   Foreground="{Binding PwSpecial, Converter={StaticResource BoolToBrush}}"
-                                   Text="{Binding PwSpecial, Converter={StaticResource BoolToSymbol}}"/>
-                        <TextBlock Text="znak specjalny (np. !@#$%)" FontSize="13"/>
-                    </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                 Foreground="{Binding PwDigit, Converter={StaticResource BoolToBrush}}"
+                 Text="{Binding PwDigit, Converter={StaticResource BoolToSymbol}}"/>
+                                <TextBlock Text="cyfra" FontSize="13"/>
+                            </StackPanel>
+                        </StackPanel>
 
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
-                                   Foreground="{Binding PwNoSpace, Converter={StaticResource BoolToBrush}}"
-                                   Text="{Binding PwNoSpace, Converter={StaticResource BoolToSymbol}}"/>
-                        <TextBlock Text="bez spacji" FontSize="13"/>
-                    </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                 Foreground="{Binding PwSpecial, Converter={StaticResource BoolToBrush}}"
+                 Text="{Binding PwSpecial, Converter={StaticResource BoolToSymbol}}"/>
+                                <TextBlock Text="znak specjalny (np. !@#$%)" FontSize="13"/>
+                            </StackPanel>
 
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
-                                   Foreground="{Binding PwMatch, Converter={StaticResource BoolToBrush}}"
-                                   Text="{Binding PwMatch, Converter={StaticResource BoolToSymbol}}"/>
-                        <TextBlock Text="powtórzone hasło takie samo" FontSize="13"/>
-                    </StackPanel>
-                </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                 Foreground="{Binding PwNoSpace, Converter={StaticResource BoolToBrush}}"
+                 Text="{Binding PwNoSpace, Converter={StaticResource BoolToSymbol}}"/>
+                                <TextBlock Text="bez spacji" FontSize="13"/>
+                            </StackPanel>
 
-                <!-- Komunikat rejestracji -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Margin="0,0,8,0" FontWeight="Bold" FontSize="13"
+                 Foreground="{Binding PwMatch, Converter={StaticResource BoolToBrush}}"
+                 Text="{Binding PwMatch, Converter={StaticResource BoolToSymbol}}"/>
+                                <TextBlock Text="powtórzone hasło takie samo" FontSize="13"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Komunikat rejestracji -->
                 <TextBlock Text="{Binding RegisterMessage}"
                            Foreground="{Binding RegisterMessageBrush}"
                            Margin="0,0,0,10"
@@ -377,7 +392,10 @@
             </StackPanel>
             <!-- ====== /PANEL REJESTRACJI ====== -->
 
-        </Grid>
+    </Grid>
+</ScrollViewer>
+<!-- ===== /TREŚĆ OKNA ===== -->
+
         <!-- ===== /TREŚĆ OKNA ===== -->
 
     </Grid>

@@ -1,168 +1,212 @@
 using System;
-using System.Data.SQLite;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Data.Sqlite;
 
 namespace Finly.Services
 {
+    /// <summary>
+    /// Proste zarz¹dzanie u¿ytkownikami + "sesja" aktualnie zalogowanego.
+    /// Oparte na Microsoft.Data.Sqlite (SQLite w .NET).
+    /// </summary>
     public static class UserService
     {
-
+        // ===== "Sesja" (kto jest zalogowany) =====
         public static int CurrentUserId { get; set; } = 0;
-        public static int GetCurrentUserId() => CurrentUserId;
-
-        // NOWE – do topbara "Konto"
         public static string? CurrentUserName { get; set; }
         public static string? CurrentUserEmail { get; set; }
 
-        // ========== PUBLIC API ==========
+        /// <summary>U¿ywana przez Dashboard/Charts.</summary>
+        public static int GetCurrentUserId() => CurrentUserId;
+
+        /// <summary>Ustaw po udanym logowaniu.</summary>
+        public static void SetCurrentUser(string username)
+        {
+            CurrentUserName = username;
+            CurrentUserId = GetUserIdByUsername(username);
+        }
+
+        /// <summary>Wyczyœæ stan przy wylogowaniu.</summary>
+        public static void ClearCurrentUser()
+        {
+            CurrentUserId = 0;
+            CurrentUserName = null;
+            CurrentUserEmail = null;
+        }
+
+        // Wygodny dostêp do connection stringa z DatabaseService.
+        private static string ConnectionString => DatabaseService.ConnectionString;
+
+        // ===== Publiczne API =====
 
         public static bool Register(string username, string password)
         {
-            var normalized = Normalize(username);
-            if (normalized is null || string.IsNullOrWhiteSpace(password))
-                return false;
+            var u = Normalize(username);
+            if (u is null || string.IsNullOrWhiteSpace(password)) return false;
 
-            var passwordHash = HashPassword(password);
+            using var con = new SqliteConnection(ConnectionString);
+            con.Open();
+            EnsureUsersSchema(con);
 
-            using var connection = DatabaseService.OpenAndEnsureSchema();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"
-INSERT INTO Users (Username, PasswordHash)
-VALUES (@username, @passwordHash);";
-            cmd.Parameters.AddWithValue("@username", normalized);
-            cmd.Parameters.AddWithValue("@passwordHash", passwordHash);
-
-            try
+            // Czy login wolny?
+            using (var check = con.CreateCommand())
             {
-                return cmd.ExecuteNonQuery() == 1;
+                check.CommandText = "SELECT 1 FROM Users WHERE lower(Username) = lower($u) LIMIT 1;";
+                check.Parameters.AddWithValue("$u", u);
+                var exists = check.ExecuteScalar();
+                if (exists != null && exists != DBNull.Value) return false;
             }
-            catch (SQLiteException)
+
+            // Wstaw
+            using (var ins = con.CreateCommand())
             {
-                // np. naruszenie unikalnoœci loginu (index COLLATE NOCASE)
-                return false;
+                ins.CommandText = @"INSERT INTO Users (Username, PasswordHash)
+                                    VALUES ($u, $ph);";
+                ins.Parameters.AddWithValue("$u", u);
+                ins.Parameters.AddWithValue("$ph", HashPassword(password));
+                return ins.ExecuteNonQuery() == 1;
             }
         }
 
         public static bool IsUsernameAvailable(string username)
         {
-            var normalized = Normalize(username);
-            if (normalized is null) return false;
+            var u = Normalize(username);
+            if (u is null) return false;
 
-            using var connection = DatabaseService.OpenAndEnsureSchema();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"
-SELECT 1
-FROM Users
-WHERE Username = @username COLLATE NOCASE
-LIMIT 1;";
-            cmd.Parameters.AddWithValue("@username", normalized);
+            using var con = new SqliteConnection(ConnectionString);
+            con.Open();
+            EnsureUsersSchema(con);
 
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = "SELECT 1 FROM Users WHERE lower(Username) = lower($u) LIMIT 1;";
+            cmd.Parameters.AddWithValue("$u", u);
             var exists = cmd.ExecuteScalar();
-            // true = wolny (brak wiersza)
             return exists is null || exists == DBNull.Value;
         }
 
         public static bool Login(string username, string password)
         {
-            var normalized = Normalize(username);
-            if (normalized is null || string.IsNullOrWhiteSpace(password))
-                return false;
+            var u = Normalize(username);
+            if (u is null || string.IsNullOrWhiteSpace(password)) return false;
 
-            using var connection = DatabaseService.OpenAndEnsureSchema();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"
-SELECT PasswordHash
-FROM Users
-WHERE Username = @username COLLATE NOCASE;";
-            cmd.Parameters.AddWithValue("@username", normalized);
+            using var con = new SqliteConnection(ConnectionString);
+            con.Open();
+            EnsureUsersSchema(con);
 
-            using var reader = cmd.ExecuteReader();
-            if (!reader.Read()) return false;
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = @"SELECT Id, PasswordHash
+                                FROM Users
+                                WHERE lower(Username) = lower($u)
+                                LIMIT 1;";
+            cmd.Parameters.AddWithValue("$u", u);
 
-            var storedHash = reader.GetString(0);
-            return VerifyPassword(password, storedHash);
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return false;
+
+            var id = r.GetInt32(0);
+            var ph = r.GetString(1);
+
+            if (!VerifyPassword(password, ph)) return false;
+
+            CurrentUserId = id;
+            CurrentUserName = u;
+            // CurrentUserEmail — jeœli dodasz kolumnê Email, ustawisz tutaj
+            return true;
         }
 
         public static int GetUserIdByUsername(string username)
         {
-            var normalized = Normalize(username) ?? string.Empty;
+            var u = Normalize(username) ?? string.Empty;
 
-            using var connection = DatabaseService.OpenAndEnsureSchema();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"
-SELECT Id
-FROM Users
-WHERE Username = @username COLLATE NOCASE;";
-            cmd.Parameters.AddWithValue("@username", normalized);
+            using var con = new SqliteConnection(ConnectionString);
+            con.Open();
+            EnsureUsersSchema(con);
 
-            var result = cmd.ExecuteScalar();
-            return (result is null || result == DBNull.Value) ? -1 : Convert.ToInt32(result);
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = "SELECT Id FROM Users WHERE lower(Username) = lower($u) LIMIT 1;";
+            cmd.Parameters.AddWithValue("$u", u);
+            var obj = cmd.ExecuteScalar();
+            return (obj is null || obj == DBNull.Value) ? -1 : Convert.ToInt32(obj);
         }
 
+        /// <summary>Usuwa u¿ytkownika i powi¹zane dane (Expenses, kategorie u¿ytkownika).</summary>
         public static bool DeleteAccount(int userId)
         {
-            using var con = DatabaseService.OpenAndEnsureSchema();
-            using var tx = con.BeginTransaction();
+            using var con = new SqliteConnection(ConnectionString);
+            con.Open();
+            EnsureUsersSchema(con);
 
+            using var tx = con.BeginTransaction();
             try
             {
-                // 1) Usuñ wydatki u¿ytkownika
+                // 1) Expenses
                 using (var cmd = con.CreateCommand())
                 {
-                    cmd.CommandText = "DELETE FROM Expenses WHERE UserId = @id;";
-                    cmd.Parameters.AddWithValue("@id", userId);
+                    cmd.CommandText = "DELETE FROM Expenses WHERE UserId = $id;";
+                    cmd.Parameters.AddWithValue("$id", userId);
                     cmd.ExecuteNonQuery();
                 }
 
-                // 2) Usuñ kategorie przypisane do u¿ytkownika (globalnych z NULL nie ruszamy)
+                // 2) Kategorie u¿ytkownika (globalnych z NULL nie ruszamy)
                 using (var cmd = con.CreateCommand())
                 {
-                    cmd.CommandText = "DELETE FROM Categories WHERE UserId = @id;";
-                    cmd.Parameters.AddWithValue("@id", userId);
+                    cmd.CommandText = "DELETE FROM Categories WHERE UserId = $id;";
+                    cmd.Parameters.AddWithValue("$id", userId);
                     cmd.ExecuteNonQuery();
                 }
 
-                // 3) Usuñ u¿ytkownika
+                // 3) Sam u¿ytkownik
                 using (var cmd = con.CreateCommand())
                 {
-                    cmd.CommandText = "DELETE FROM Users WHERE Id = @id;";
-                    cmd.Parameters.AddWithValue("@id", userId);
-                    int rows = cmd.ExecuteNonQuery();
-                    if (rows != 1)
-                        throw new InvalidOperationException("Nie znaleziono u¿ytkownika do usuniêcia.");
+                    cmd.CommandText = "DELETE FROM Users WHERE Id = $id;";
+                    cmd.Parameters.AddWithValue("$id", userId);
+                    if (cmd.ExecuteNonQuery() != 1)
+                        throw new InvalidOperationException("Nie znaleziono u¿ytkownika.");
                 }
 
                 tx.Commit();
+
+                if (CurrentUserId == userId)
+                    ClearCurrentUser();
+
                 return true;
             }
             catch
             {
-                try { tx.Rollback(); } catch { /* ignorujemy */ }
+                try { tx.Rollback(); } catch { /* ignore */ }
                 return false;
             }
         }
 
-        // ========== INTERNALS ==========
+        // ===== Prywatne pomocnicze =====
 
         private static string? Normalize(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username)) return null;
-            return username.Trim().ToLowerInvariant();
-        }
+            => string.IsNullOrWhiteSpace(username) ? null : username.Trim();
 
         private static string HashPassword(string password)
         {
-            using var sha = SHA256.Create();
-            var bytes = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(password));
+            // Na projekt OK (SHA256). Produkcyjnie: PBKDF2/Argon2 + sól.
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));
             return Convert.ToBase64String(bytes);
         }
 
-        private static bool VerifyPassword(string password, string storedHash)
+        private static bool VerifyPassword(string password, string storedBase64Sha256)
+            => string.Equals(HashPassword(password), storedBase64Sha256, StringComparison.Ordinal);
+
+        /// <summary>Zapewnia tabelê Users + unikalnoœæ loginu case-insensitive.</summary>
+        private static void EnsureUsersSchema(SqliteConnection con)
         {
-            var incoming = HashPassword(password);
-            return string.Equals(incoming, storedHash, StringComparison.Ordinal);
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = @"
+CREATE TABLE IF NOT EXISTS Users(
+    Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    Username     TEXT NOT NULL UNIQUE,
+    PasswordHash TEXT NOT NULL,
+    CreatedAt    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
+    ON Users(Username COLLATE NOCASE);";
+            cmd.ExecuteNonQuery();
         }
     }
 }

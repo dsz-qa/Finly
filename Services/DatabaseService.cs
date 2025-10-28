@@ -1,18 +1,19 @@
 using System;
 using System.Collections.Generic;
-using System.Data.SQLite;
+using Microsoft.Data.Sqlite;
 using Finly.Models;
 
 namespace Finly.Services
 {
     public static class DatabaseService
     {
+        // Lokalna baza w katalogu aplikacji
         public static string ConnectionString = "Data Source=budgetApp.db";
 
-        public static SQLiteConnection GetConnection()
-            => new SQLiteConnection(ConnectionString);
+        public static SqliteConnection GetConnection()
+            => new SqliteConnection(ConnectionString);
 
-        public static SQLiteConnection OpenAndEnsureSchema()
+        public static SqliteConnection OpenAndEnsureSchema()
         {
             var con = GetConnection();
             con.Open();

@@ -46,4 +46,11 @@
     <SolidColorBrush x:Key="ScrollBar.Thumb"      Color="#2A2A2A"/>
     <SolidColorBrush x:Key="ScrollBar.ThumbHover" Color="#3A3A3A"/>
 
+    <SolidColorBrush x:Key="Nav.Active" Color="#FF8C00"/>
+    <!-- pomarańcz -->
+    <SolidColorBrush x:Key="Nav.Hover"  Color="#1AFF8C00"/>
+    <!-- delikatny hover -->
+    <SolidColorBrush x:Key="Nav.Foreground" Color="#FFFFFFFF"/>
+
+
 </ResourceDictionary>

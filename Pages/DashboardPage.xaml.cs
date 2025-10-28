@@ -4,11 +4,10 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Data.SQLite;
 
 using Finly.Models;
-using Finly.Services;      // DatabaseService, SchemaService, ToastService, UserService
-using Finly.ViewModels;
+using Finly.Services;      // DatabaseService, ToastService, UserService
+using Finly.ViewModels;    // AuthViewModel (do komunikatów po wylogowaniu/US unięciu konta)
 using Finly.Views;         // AuthWindow, EditExpenseView, ConfirmDialog
 
 namespace Finly.Pages
@@ -100,42 +99,23 @@ namespace Finly.Pages
 
         private void LoadExpenses()
         {
-            var list = new List<ExpenseDisplayModel>();
-
-            using var connection = new SQLiteConnection(DatabaseService.ConnectionString);
-            connection.Open();
-            SchemaService.Ensure(connection);
-
-            const string query = @"
-SELECT e.Id, e.Amount, e.Date, e.Description, c.Name
-FROM Expenses e
-LEFT JOIN Categories c ON e.CategoryId = c.Id
-WHERE e.UserId = @userId;";
-
-            using var command = new SQLiteCommand(query, connection);
-            command.Parameters.AddWithValue("@userId", _userId);
-
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                list.Add(new ExpenseDisplayModel
+            // Najprościej: gotowy widok z nazwami kategorii dla danego użytkownika
+            _allExpenses = DatabaseService.GetExpensesWithCategoryNameByUser(_userId)
+                .Select(e =>
                 {
-                    Id = reader.GetInt32(0),
-                    Amount = reader.GetDouble(1),
-                    Date = DateTime.Parse(reader.GetString(2)), // ISO yyyy-MM-dd
-                    Description = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                    Category = reader.IsDBNull(4) ? "Brak kategorii" : reader.GetString(4),
-                    UserId = _userId
-                });
-            }
-
-            _allExpenses = list;
+                    // sanityzacja pustych nazw
+                    e.CategoryName = string.IsNullOrWhiteSpace(e.CategoryName) ? "Brak kategorii" : e.CategoryName.Trim();
+                    e.Category = e.CategoryName; // alias zgodności
+                    return e;
+                })
+                .OrderByDescending(e => e.Date)
+                .ToList();
         }
 
         private void LoadCategories()
         {
             var categories = _allExpenses
-                .Select(e => e.Category)
+                .Select(e => e.CategoryName)
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .Distinct()
                 .OrderBy(c => c)
@@ -152,7 +132,7 @@ WHERE e.UserId = @userId;";
             var query = (QueryTextBox?.Text ?? string.Empty).Trim();
 
             var filtered = _allExpenses.Where(exp =>
-                       (string.IsNullOrWhiteSpace(selectedCategory) || exp.Category == selectedCategory)
+                       (string.IsNullOrWhiteSpace(selectedCategory) || exp.CategoryName == selectedCategory)
                     && (!from.HasValue || exp.Date >= from.Value)
                     && (!to.HasValue || exp.Date <= to.Value)
                     && (string.IsNullOrWhiteSpace(query) ||
@@ -177,7 +157,7 @@ WHERE e.UserId = @userId;";
             {
                 var min = set.Min(e => e.Date);
                 var max = set.Max(e => e.Date);
-                var days = (max - min).TotalDays + 1;
+                var days = Math.Max(1, (max - min).TotalDays + 1);
                 var avg = total / days;
                 DailyAverageText.Text = $"{avg:0.00} zł";
             }
@@ -209,7 +189,7 @@ WHERE e.UserId = @userId;";
                 var expense = DatabaseService.GetExpenseById(id);
                 if (expense == null) return;
 
-                var editView = new EditExpenseView(expense, _userId)
+                var editView = new EditExpenseWindow(expense, _userId)
                 {
                     Owner = Window.GetWindow(this)
                 };
@@ -271,7 +251,7 @@ WHERE e.UserId = @userId;";
                 var full = DatabaseService.GetExpenseById(selected.Id);
                 if (full is null) return;
 
-                var editView = new EditExpenseView(full, _userId)
+                var editView = new EditExpenseWindow(full, _userId)
                 {
                     Owner = Window.GetWindow(this)
                 };
@@ -283,8 +263,7 @@ WHERE e.UserId = @userId;";
             }
         }
 
-        // (stub) szybkie dodawanie z pola QuickAddBox – działa jako komunikat,
-        // żeby nie blokowało kompilacji; możesz tu potem dodać własny parser.
+        // (stub) szybkie dodawanie – zostawiamy jako informację, żeby nie blokować kompilacji
         private void QuickAdd_Click(object sender, RoutedEventArgs e)
         {
             var text = QuickAddBox?.Text?.Trim();
@@ -294,7 +273,7 @@ WHERE e.UserId = @userId;";
                 return;
             }
 
-            ToastService.Info("Szybkie dodawanie: jeszcze chwila — wstaw tu parser i zapis do bazy 😊");
+            ToastService.Info("Szybkie dodawanie: wstaw tu parser i zapis do bazy 😊");
             QuickAddBox.Text = string.Empty;
         }
     }

@@ -10,6 +10,11 @@ namespace Finly.Services
 
         public static int CurrentUserId { get; set; } = 0;
         public static int GetCurrentUserId() => CurrentUserId;
+
+        // NOWE – do topbara "Konto"
+        public static string? CurrentUserName { get; set; }
+        public static string? CurrentUserEmail { get; set; }
+
         // ========== PUBLIC API ==========
 
         public static bool Register(string username, string password)
@@ -149,7 +154,8 @@ WHERE Username = @username COLLATE NOCASE;";
         private static string HashPassword(string password)
         {
             using var sha = SHA256.Create();
-            var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(password));
+            var bytes = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(password));
             return Convert.ToBase64String(bytes);
         }
 

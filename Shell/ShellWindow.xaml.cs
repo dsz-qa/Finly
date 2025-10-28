@@ -1,11 +1,11 @@
-﻿using Finly.Pages;   // DashboardPage, AddExpensePage, ChartsPage, CategoriesPage, SettingsPage
-using Finly.Services;     // UserService
-using Finly.ViewModels;   // AuthViewModel
-using Finly.Views;        // AuthWindow
+﻿using Finly.Pages;
+using Finly.Services;
+using Finly.Views;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+
 
 
 namespace Finly.Shell
@@ -15,107 +15,154 @@ namespace Finly.Shell
         public ShellWindow()
         {
             InitializeComponent();
-            NavigateTo("Dashboard");
+            NavigateToDashboard(); // start na stronie głównej
         }
 
-        public void NavigateTo(string target)
-        {
-            UserControl view = target switch
+        public void NavigateTo(string route)
             {
-                "Dashboard" => new DashboardPage(),
-                "AddExpense" => new AddExpensePage(),
-                "Charts" => new ChartsPage(),
-                "Categories" => new CategoriesPage(),
-                "Settings" => new SettingsPage(),
-                _ => new DashboardPage()
+                // Jeśli nie jesteśmy zalogowani, wróć do loginu
+                var uid = UserService.CurrentUserId;
+                if (uid == 0)
+                {
+                    RightHost.Content = new LoginView(); // jeśli masz; w przeciwnym razie wyjdź:
+                    return;
+                }
+
+                UserControl view = route switch
+                {
+                    // główne
+                    "Dashboard" => new DashboardPage(uid),
+                    "AddExpense" => new AddExpensePage(uid),
+                    "Transactions" => new TransactionsPage(uid),
+                    "Budgets" => new BudgetsPage(uid),
+                    "Categories" => new CategoriesPage(uid),
+                    "Reports" => new ReportsPage(uid),
+                    "Subscriptions" => new SubscriptionsPage(uid),
+                    "Goals" => new GoalsPage(uid),
+                    "Charts" => new ChartsPage(uid),
+
+                    // narzędzia / integracje
+                    "Import" => new ImportSyncPage("banks"),
+                    "Settings" => new SettingsPage(null),
+
+                    _ => new DashboardPage(uid)
+                };
+
+                RightHost.Content = view;   // RightHost to Twój ContentControl w ShellWindow.xaml
+            }
+
+    // ===== Pasek tytułu =====
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2) { MaxRestore_Click(sender, e); return; }
+            try { DragMove(); } catch { }
+        }
+        private void Minimize_Click(object s, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+        private void MaxRestore_Click(object s, RoutedEventArgs e) =>
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        private void Close_Click(object s, RoutedEventArgs e) => Close();
+
+        // ===== Top bar: konto / ustawienia / wyloguj =====
+        private void AccountButton_Click(object s, RoutedEventArgs e)
+        {
+            // uzupełnij danymi
+            var info = new
+            {
+                DisplayName = UserService.CurrentUserName ?? "Użytkownik",
+                Email = UserService.CurrentUserEmail ?? "—"
             };
-
-            RightHost.Content = view;   // << nazwa zgodna z XAML
+            AccountMenu.DataContext = info;
+            AccountMenu.PlacementTarget = AccountButton;
+            AccountMenu.IsOpen = true;
         }
 
-        // --- GÓRNE MENU ---
-        private void Nav_Dashboard_Click(object sender, RoutedEventArgs e)
-        {
-            SetActive(NavDashboard);
-            NavigateTo("Dashboard");
-        }
+        private void OpenProfile_Click(object s, RoutedEventArgs e) => NavigateToSettings("Profile");
+        private void OpenBanks_Click(object s, RoutedEventArgs e) => NavigateToImportSync("Banks");
+        private void OpenSecurity_Click(object s, RoutedEventArgs e) => NavigateToSettings("Security");
+        private void OpenBackups_Click(object s, RoutedEventArgs e) => NavigateToSettings("Backups");
+        private void OpenSettings_Click(object s, RoutedEventArgs e) => NavigateToSettings(null);
 
-        private void Nav_Add_Click(object sender, RoutedEventArgs e)
+        public void Nav_Logout_Click(object s, RoutedEventArgs e)
         {
-            SetActive(NavAdd);
-            NavigateTo("AddExpense");
-        }
-
-        private void Nav_Charts_Click(object sender, RoutedEventArgs e)
-        {
-            SetActive(NavCharts);
-            NavigateTo("Charts");
-        }
-
-        private void Nav_Categories_Click(object sender, RoutedEventArgs e)
-        {
-            SetActive(NavCategories);
-            NavigateTo("Categories");
-        }
-
-        private void Nav_Settings_Click(object sender, RoutedEventArgs e)
-        {
-            SetActive(NavSettings);
-            NavigateTo("Settings");
-        }
-
-        private void Nav_Logout_Click(object sender, RoutedEventArgs e)
-        {
-            // jak dotychczas – powrót do AuthWindow
-            Logout_Click(sender, e);
-        }
-
-        private void Logout_Click(object sender, RoutedEventArgs e)
-        {
-            // wyczyść sesję/logowanie
-            UserService.CurrentUserId = 0;
-
-            // utwórz okno logowania i ustaw jako główne
-            var auth = new AuthWindow();
+            // Twój istniejący mechanizm wylogowania:
+            // np. otwarcie AuthWindow i zamknięcie ShellWindow
+            var auth = new Finly.Views.AuthWindow();
             Application.Current.MainWindow = auth;
-
-            // pokaż niebieski baner "Zostałeś(-aś) wylogowany(-a)."
-            if (auth.DataContext is AuthViewModel vm)
-                vm.ShowLogoutInfo();
-
             auth.Show();
-
-            // zamknij powłokę (NIE zamyka aplikacji przy ShutdownMode=OnMainWindowClose)
-            this.Close();
-        }
-        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ClickCount == 2)
-                MaxRestore_Click(sender, e);
-            else
-                DragMove();
+            Close();
         }
 
-        private void Minimize_Click(object sender, RoutedEventArgs e)
-            => WindowState = WindowState.Minimized;
+        // ===== Logo = dashboard =====
+        private void Logo_Click(object s, RoutedEventArgs e) => NavigateToDashboard();
 
-        private void MaxRestore_Click(object sender, RoutedEventArgs e)
-            => WindowState = WindowState == WindowState.Maximized
-                ? WindowState.Normal
-                : WindowState.Maximized;
-
-        private void Close_Click(object sender, RoutedEventArgs e)
-            => Close();
-
-        private void SetActive(params ToggleButton[] toActivate)
+        private void NavigateToDashboard()
         {
-            // odznacz wszystkie ToggleButtony z kontenera nawigacji
+            int uid = UserService.CurrentUserId;
+            RightHost.Content = new DashboardPage(uid);
+            SetActiveNav(null); // nic niepodświetlone w sidebarze
+        }
+
+        private void NavigateToSettings(string? tabKey)
+        {
+            RightHost.Content = new SettingsPage(tabKey);
+            SetActiveNav(NavSettings);
+        }
+        private void NavigateToImportSync(string? sectionKey)
+        {
+            RightHost.Content = new ImportSyncPage(sectionKey);
+            SetActiveNav(NavImport);
+        }
+
+        // ===== Nawigacja sidebara =====
+        private void Nav_Add_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new AddExpensePage(UserService.CurrentUserId);
+            SetActiveNav(NavAdd);
+        }
+        private void Nav_Transactions_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new TransactionsPage(UserService.CurrentUserId);
+            SetActiveNav(NavTransactions);
+        }
+        private void Nav_Charts_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new ChartsPage(UserService.CurrentUserId);
+            SetActiveNav(NavCharts);
+        }
+        private void Nav_Budgets_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new BudgetsPage(UserService.CurrentUserId);
+            SetActiveNav(NavBudgets);
+        }
+        private void Nav_Subscriptions_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new SubscriptionsPage(UserService.CurrentUserId);
+            SetActiveNav(NavSubscriptions);
+        }
+        private void Nav_Goals_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new GoalsPage(UserService.CurrentUserId);
+            SetActiveNav(NavGoals);
+        }
+        private void Nav_Categories_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new CategoriesPage(UserService.CurrentUserId);
+            SetActiveNav(NavCategories);
+        }
+        private void Nav_Reports_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new ReportsPage(UserService.CurrentUserId);
+            SetActiveNav(NavReports);
+        }
+        private void Nav_Import_Click(object s, RoutedEventArgs e)
+        {
+            NavigateToImportSync(null);
+        }
+
+        private void SetActiveNav(ToggleButton? active)
+        {
             foreach (var child in NavContainer.Children)
-                if (child is ToggleButton tb) tb.IsChecked = false;
-
-            foreach (var tb in toActivate) tb.IsChecked = true;
+                if (child is ToggleButton tb) tb.IsChecked = (tb == active);
         }
-
-
     }
 }

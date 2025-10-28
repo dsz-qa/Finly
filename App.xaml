@@ -5,35 +5,47 @@
              Startup="Application_Startup"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
+        <!-- ✅ JEDEN wspólny ResourceDictionary -->
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
 
-                <!-- 1) Bazowe pędzle i klucze (Accent, Brand, Sidebar...) -->
+            <!-- 1) Najpierw scalamy słowniki -->
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Bazowe pędzle/aliasy: Accent, Brand, Sidebar, ScrollBar.* itd. -->
                 <ResourceDictionary Source="Styles/Shared.xaml"/>
 
-                <!-- 2) WYBIERZ JEDEN motyw (możesz przełączać ThemeService.Apply) -->
+                <!-- WYBIERZ motyw (Dark/Light). W runtime można przełączać ThemeService.Apply(...) -->
                 <ResourceDictionary Source="Themes/Dark.xaml"/>
                 <!-- <ResourceDictionary Source="Themes/Light.xaml"/> -->
 
-                <!-- 3) Agregator stylów (Buttons/Nav/DataGrid/Controls itd.) -->
+                <!-- Style kontrolek: Buttons, Controls, Nav, DataGrid, ... -->
                 <ResourceDictionary Source="Styles/_Index.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Konwertery -->
+            <!-- 2) Konwertery dostępne globalnie -->
             <conv:BoolToBrushConverter      x:Key="BoolToBrush"/>
             <conv:BoolToSymbolConverter     x:Key="BoolToSymbol"/>
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
 
-            <!-- Globalne defaulty -->
+            <!-- 3) Globalne style tekstu (biorą kolor z App.Foreground) -->
+            <Style TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource App.Foreground}"/>
+            </Style>
+            <Style TargetType="Label">
+                <Setter Property="Foreground" Value="{DynamicResource App.Foreground}"/>
+            </Style>
+            <Style TargetType="{x:Type TextElement}">
+                <Setter Property="Foreground" Value="{DynamicResource App.Foreground}"/>
+            </Style>
 
+            <!-- 4) Domyślne style kontenerów/okien -->
             <Style TargetType="Window">
                 <Setter Property="Background" Value="{DynamicResource App.Background}"/>
                 <Setter Property="Foreground" Value="{DynamicResource App.Foreground}"/>
+                <Setter Property="FontFamily" Value="Segoe UI"/>
                 <Setter Property="WindowState" Value="Maximized"/>
                 <Setter Property="ResizeMode"   Value="CanResize"/>
                 <Setter Property="MinWidth"     Value="1100"/>
                 <Setter Property="MinHeight"    Value="700"/>
-                <Setter Property="FontFamily"   Value="Segoe UI"/>
             </Style>
 
             <Style TargetType="UserControl">
@@ -52,7 +64,7 @@
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius"    Value="8"/>
             </Style>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>
-

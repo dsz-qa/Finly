@@ -8,25 +8,35 @@ namespace Finly.Pages
     {
         private bool _isInit;
 
+        // używane przez XAML (bez parametrów)
         public SettingsPage()
         {
             InitializeComponent();
 
             _isInit = true;
 
-            // Stan bieżącego motywu (bez odpalania zdarzeń)
-            LightRadio.IsChecked = ThemeService.Current == AppTheme.Light;
-            DarkRadio.IsChecked = ThemeService.Current == AppTheme.Dark;
+            // Stan motywu
+            if (LightRadio != null) LightRadio.IsChecked = ThemeService.Current == AppTheme.Light;
+            if (DarkRadio != null) DarkRadio.IsChecked = ThemeService.Current == AppTheme.Dark;
 
-            // Pozycje tostów (bez wywoływania SelectionChanged)
-            ToastPosCombo.ItemsSource = new[] { "Dół – środek", "Góra – prawa" };
-            ToastPosCombo.SelectedIndex =
-                ToastService.Position == ToastService.ToastPosition.TopRight ? 1 : 0;
+            // Pozycja toastów
+            if (ToastPosCombo != null)
+            {
+                ToastPosCombo.ItemsSource = new[] { "Dół – środek", "Góra – prawa" };
+                ToastPosCombo.SelectedIndex =
+                    ToastService.Position == ToastService.ToastPosition.TopRight ? 1 : 0;
+            }
 
             _isInit = false;
         }
 
-        // Motyw
+        // wygodne przeciążenie, gdy chcesz wejść na konkretną zakładkę
+        public SettingsPage(string? initialTab) : this()
+        {
+            // Jeśli masz wewnętrzne zakładki: LoadTab(initialTab ?? "Profile");
+        }
+
+        // ===== Handlery =====
         private void LightRadio_Checked(object sender, RoutedEventArgs e)
         {
             if (_isInit) return;
@@ -41,7 +51,6 @@ namespace Finly.Pages
             ToastService.Success("Włączono motyw ciemny.");
         }
 
-        // Pozycja toastów
         private void ToastPosCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInit) return;
@@ -53,10 +62,10 @@ namespace Finly.Pages
             ToastService.Info("Zmieniono pozycję powiadomień.");
         }
 
-        // Testowy toast („Przetestuj” i „Wyświetl test”)
         private void PreviewBtn_Click(object sender, RoutedEventArgs e)
         {
             ToastService.Success("To jest przykładowe powiadomienie.");
         }
     }
 }
+

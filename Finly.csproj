@@ -36,4 +36,13 @@
     </Resource>
   </ItemGroup>
 
+  <ItemGroup>
+    <Page Update="Pages\BudgetsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Update="Pages\TransactionsPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+
 </Project>

@@ -2,8 +2,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     
     <!-- Podstawowe tła/teksty -->
-    <SolidColorBrush x:Key="App.Background"     Color="#16181C"/>
-    <SolidColorBrush x:Key="App.Foreground"     Color="#EAEAEA"/>
+    <SolidColorBrush x:Key="App.Background" Color="#0F1114"/>
+    <SolidColorBrush x:Key="App.Foreground" Color="#FFFFFF"/>
+    <!-- BIAŁY -->
 
     <SolidColorBrush x:Key="Surface.Background" Color="#1D2026"/>
     <SolidColorBrush x:Key="Surface.Border"     Color="#2A2F37"/>

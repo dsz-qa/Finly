@@ -50,7 +50,7 @@
                 shell:WindowChrome.IsHitTestVisibleInChrome="True"/>
 
                 <TextBlock Text="Logowanie / Rejestracja"
-                   Foreground="#EAEAEA"
+                   Foreground="{DynamicResource App.Foreground}"
                    FontSize="14"
                    VerticalAlignment="Center"/>
             </StackPanel>
@@ -62,7 +62,7 @@
                         Click="Minimize_Click"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="—" FontSize="16" VerticalAlignment="Center"
-                               HorizontalAlignment="Center" Foreground="#EAEAEA"/>
+                               HorizontalAlignment="Center" Foreground="{DynamicResource App.Foreground}"/>
                 </Button>
 
                 <!-- Maksymalizuj / Przywróć -->
@@ -71,7 +71,7 @@
                         Click="MaxRestore_Click"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="⬜" FontSize="12" VerticalAlignment="Center"
-                               HorizontalAlignment="Center" Foreground="#EAEAEA"/>
+                               HorizontalAlignment="Center" Foreground="{DynamicResource App.Foreground}"/>
                 </Button>
 
                 <!-- Zamknij -->
@@ -83,7 +83,7 @@
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock x:Name="CloseGlyph" Text="✕" FontSize="12"
                                VerticalAlignment="Center" HorizontalAlignment="Center"
-                               Foreground="#EAEAEA"/>
+                               Foreground="{DynamicResource App.Foreground}"/>
                 </Button>
             </StackPanel>
         </Grid>

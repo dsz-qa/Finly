@@ -1,10 +1,10 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 
-using Finly.Services;
 using Finly.Pages;
+using Finly.Services;
 using Finly.Views;
 
 namespace Finly.Shell
@@ -14,9 +14,11 @@ namespace Finly.Shell
         public ShellWindow()
         {
             InitializeComponent();
+            ApplySidebarWidthFromResource();   // Ustaw szerokość z resource (jeśli jest)
             NavigateTo("dashboard");
         }
 
+        // ======================= Nawigacja główna =======================
         public void NavigateTo(string route)
         {
             var uid = UserService.CurrentUserId;
@@ -48,11 +50,11 @@ namespace Finly.Shell
             RightHost.Content = view;
         }
 
-        // ===== Pasek tytułu =====
+        // ======================= Pasek tytułu =======================
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ClickCount == 2) { MaxRestore_Click(sender, e); return; }
-            try { DragMove(); } catch { }
+            try { DragMove(); } catch { /* ignoruj */ }
         }
 
         private void Minimize_Click(object s, RoutedEventArgs e) =>
@@ -63,17 +65,94 @@ namespace Finly.Shell
 
         private void Close_Click(object s, RoutedEventArgs e) => Close();
 
-        // ===== Akcje konta (na dole sidebara) =====
+        // ======================= Logo => Dashboard =======================
+        private void Logo_Click(object s, RoutedEventArgs e) => NavigateToDashboard();
+
+        private void NavigateToDashboard()
+        {
+            var uid = UserService.CurrentUserId;
+            RightHost.Content = new DashboardPage(uid);
+            SetActiveNav(null);
+            SetActiveFooter(null);
+        }
+
+        // ======================= Sidebar (lewa nawigacja) =======================
+        private void Nav_Add_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new AddExpensePage(UserService.CurrentUserId);
+            SetActiveNav(NavAdd);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Transactions_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new TransactionsPage();
+            SetActiveNav(NavTransactions);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Charts_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new ChartsPage(UserService.CurrentUserId);
+            SetActiveNav(NavCharts);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Budgets_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new BudgetsPage();
+            SetActiveNav(NavBudgets);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Subscriptions_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new SubscriptionsPage();
+            SetActiveNav(NavSubscriptions);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Goals_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new GoalsPage();
+            SetActiveNav(NavGoals);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Categories_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new CategoriesPage();
+            SetActiveNav(NavCategories);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Reports_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new ReportsPage();
+            SetActiveNav(NavReports);
+            SetActiveFooter(null);
+        }
+
+        private void Nav_Import_Click(object s, RoutedEventArgs e)
+        {
+            RightHost.Content = new ImportPage();
+            SetActiveNav(NavImport);
+            SetActiveFooter(null);
+        }
+
+        // ======================= Stopka (Konto / Ustawienia / Wyloguj) =======================
         private void OpenProfile_Click(object s, RoutedEventArgs e)
         {
-            NavigateTo("settings");
+            NavigateTo("settings");   // profil w sekcji ustawień
             SetActiveNav(null);
+            SetActiveFooter(FooterAccount);
         }
 
         private void OpenSettings_Click(object s, RoutedEventArgs e)
         {
             NavigateTo("settings");
             SetActiveNav(null);
+            SetActiveFooter(FooterSettings);
         }
 
         public void Nav_Logout_Click(object s, RoutedEventArgs e)
@@ -84,76 +163,39 @@ namespace Finly.Shell
             Close();
         }
 
-        // ===== Logo = dashboard =====
-        private void Logo_Click(object s, RoutedEventArgs e) => NavigateToDashboard();
-
-        private void NavigateToDashboard()
-        {
-            var uid = UserService.CurrentUserId;
-            RightHost.Content = new DashboardPage(uid);
-            SetActiveNav(null);
-        }
-
-        // ===== Nawigacja sidebara =====
-        private void Nav_Add_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new AddExpensePage(UserService.CurrentUserId);
-            SetActiveNav(NavAdd);
-        }
-
-        private void Nav_Transactions_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new TransactionsPage();
-            SetActiveNav(NavTransactions);
-        }
-
-        private void Nav_Charts_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new ChartsPage(UserService.CurrentUserId);
-            SetActiveNav(NavCharts);
-        }
-
-        private void Nav_Budgets_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new BudgetsPage();
-            SetActiveNav(NavBudgets);
-        }
-
-        private void Nav_Subscriptions_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new SubscriptionsPage();
-            SetActiveNav(NavSubscriptions);
-        }
-
-        private void Nav_Goals_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new GoalsPage();
-            SetActiveNav(NavGoals);
-        }
-
-        private void Nav_Categories_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new CategoriesPage();
-            SetActiveNav(NavCategories);
-        }
-
-        private void Nav_Reports_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new ReportsPage();
-            SetActiveNav(NavReports);
-        }
-
-        private void Nav_Import_Click(object s, RoutedEventArgs e)
-        {
-            RightHost.Content = new ImportPage();
-            SetActiveNav(NavImport);
-        }
-
+        // ======================= Podświetlenia (helpery) =======================
         private void SetActiveNav(ToggleButton? active)
         {
             foreach (var child in NavContainer.Children)
+            {
                 if (child is ToggleButton tb)
                     tb.IsChecked = (tb == active);
+            }
+        }
+
+        private void SetActiveFooter(ToggleButton? active)
+        {
+            if (FooterAccount != null) FooterAccount.IsChecked = active == FooterAccount;
+            if (FooterSettings != null) FooterSettings.IsChecked = active == FooterSettings;
+            if (FooterLogout != null) FooterLogout.IsChecked = false; // Logout nigdy nie zostaje aktywny
+        }
+
+        // ======================= Szerokość sidebara z Resource =======================
+        private void ApplySidebarWidthFromResource()
+        {
+            try
+            {
+                var res = TryFindResource("Sidebar.Width");
+                if (res is string s && double.TryParse(s, out var w))
+                    SidebarCol.Width = new GridLength(w);
+                else if (res is double d)
+                    SidebarCol.Width = new GridLength(d);
+                // brak zasobu -> zostaje fallback 420 z XAML
+            }
+            catch
+            {
+                // cicho ignorujemy – zostaje fallback
+            }
         }
     }
 }

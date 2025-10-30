@@ -9,6 +9,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Platforms>AnyCPU;x64</Platforms>
 		<PlatformTarget>x64</PlatformTarget>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
 	</PropertyGroup>
 
 	<!-- Logo jako zasób -->
@@ -35,6 +36,7 @@
 
 	<!-- Same foldery (opcjonalnie) -->
 	<ItemGroup>
+		<Folder Include="Nowy folder\" />
 		<Folder Include="Themes\" />
 		<Folder Include="Styles\" />
 	</ItemGroup>

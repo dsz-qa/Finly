@@ -9,6 +9,7 @@
         WindowState="Normal"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource App.Background}"
+        Icon="/Assets/Icons/logoFinly.ico"
         Loaded="Window_Loaded">
 
     <!-- WindowChrome: własny pasek tytułu, nadal można zmieniać rozmiar -->

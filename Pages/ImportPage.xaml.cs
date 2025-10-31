@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.Win32;
+using System;
 using System.Data;
 using System.Globalization;
 using System.IO;
@@ -7,261 +7,119 @@ using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32;
-using Finly.Models;
-using Finly.Services;
 
 namespace Finly.Pages
 {
     public partial class ImportPage : UserControl
     {
-        private DataTable? _previewTable;
-
         public ImportPage()
         {
             InitializeComponent();
-
-            // domyślny separator
-            DelimiterBox.SelectedIndex = 0; // ";"
-
-            // podpowiedź domyślnej kategorii – jeśli masz kategorie w DB, możesz je tu zaciągnąć
-            try
-            {
-                var uid = UserService.CurrentUserId;
-                if (uid > 0)
-                {
-                    var cats = DatabaseService.GetCategoriesByUser(uid);
-                    if (cats.Count > 0)
-                        DefaultCategoryBox.Text = cats.First();
-                }
-            }
-            catch { /* nic – podgląd i tak zadziała */ }
         }
-
-        // ======= UI HANDLERS =======
 
         private void Browse_Click(object sender, RoutedEventArgs e)
         {
-            var ofd = new OpenFileDialog
+            var dlg = new OpenFileDialog
             {
-                Title = "Wybierz plik CSV",
                 Filter = "CSV (*.csv)|*.csv|Wszystkie pliki (*.*)|*.*",
-                CheckFileExists = true
+                Multiselect = false
             };
-            if (ofd.ShowDialog() == true)
+            if (dlg.ShowDialog() == true)
             {
-                FilePathBox.Text = ofd.FileName;
+                FilePathBox.Text = dlg.FileName;
                 LoadPreview();
             }
         }
 
         private void ReloadPreview_Click(object sender, RoutedEventArgs e) => LoadPreview();
 
-        private void Import_Click(object sender, RoutedEventArgs e)
-        {
-            if (_previewTable == null || _previewTable.Rows.Count == 0)
-            {
-                ToastSafe("Brak danych do importu.", "warning");
-                return;
-            }
-
-            if (AmountCol.SelectedItem == null || DateCol.SelectedItem == null)
-            {
-                ToastSafe("Wybierz kolumny: Kwota i Data (wymagane).", "warning");
-                return;
-            }
-
-            var amountCol = AmountCol.SelectedItem.ToString()!;
-            var dateCol = DateCol.SelectedItem.ToString()!;
-            var catCol = CatCol.SelectedItem?.ToString();
-            var descCol = DescCol.SelectedItem?.ToString();
-            var dateFormat = DateFormatBox.Text?.Trim();
-            var defaultCategory = DefaultCategoryBox.Text?.Trim();
-
-            var uid = UserService.CurrentUserId;
-            if (uid <= 0)
-            {
-                ToastSafe("Brak zalogowanego użytkownika – import przerwany.", "error");
-                return;
-            }
-
-            int ok = 0, fail = 0;
-            foreach (DataRow row in _previewTable.Rows)
-            {
-                try
-                {
-                    // --- odczyty pól ---
-                    var amountStr = row[amountCol]?.ToString() ?? "";
-                    var dateStr = row[dateCol]?.ToString() ?? "";
-
-                    if (!TryParseAmount(amountStr, out var amount) || amount == 0)
-                        throw new InvalidOperationException("Niepoprawna kwota.");
-
-                    if (!TryParseDate(dateStr, dateFormat, out var date))
-                        throw new InvalidOperationException("Niepoprawna data.");
-
-                    string? categoryName = null;
-                    if (!string.IsNullOrWhiteSpace(catCol))
-                        categoryName = row[catCol!]?.ToString();
-
-                    if (string.IsNullOrWhiteSpace(categoryName))
-                        categoryName = string.IsNullOrWhiteSpace(defaultCategory) ? "Inne" : defaultCategory;
-
-                    var description = !string.IsNullOrWhiteSpace(descCol) ? (row[descCol!]?.ToString() ?? "") : "";
-
-                    // --- mapowanie kategorii ---
-                    var categoryId = DatabaseService.GetOrCreateCategoryId(categoryName!, uid);
-
-                    // --- zapis ---
-                    var expense = new Expense
-                    {
-                        Amount = amount,
-                        CategoryId = categoryId,
-                        CategoryName = categoryName!,
-                        Date = date,
-                        Description = description,
-                        UserId = uid
-                    };
-
-                    DatabaseService.AddExpense(expense);
-                    ok++;
-                }
-                catch
-                {
-                    fail++;
-                }
-            }
-
-            if (ok > 0 && fail == 0) ToastSafe($"Zaimportowano {ok} wierszy.", "success");
-            else if (ok > 0 && fail > 0) ToastSafe($"Zaimportowano {ok} wierszy, błędy: {fail}.", "warning");
-            else ToastSafe("Import nie powiódł się (wszystkie wiersze z błędem).", "error");
-        }
-
-        // ======= PREVIEW =======
-
         private void LoadPreview()
         {
-            var path = FilePathBox.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            PreviewGrid.ItemsSource = null;
+
+            if (!File.Exists(FilePathBox.Text)) return;
+
+            char delimiter = ',';
+            switch ((DelimiterBox.SelectedItem as ComboBoxItem)?.Content?.ToString())
             {
-                ToastSafe("Wybierz poprawny plik.", "warning");
-                return;
+                case ";": delimiter = ';'; break;
+                case "Tab": delimiter = '\t'; break;
             }
 
-            char delim = GetDelimiter();
-            bool hasHeader = HasHeaderCheckBox.IsChecked == true;
-
-            try
+            var dt = new DataTable();
+            using (var sr = new StreamReader(FilePathBox.Text, Encoding.UTF8, true))
             {
-                var table = ReadCsvToDataTable(path, delim, hasHeader, maxRows: 300); // ograniczamy podgląd
-                _previewTable = table;
+                string? line;
+                string[]? headers = null;
 
-                // Podgląd
-                PreviewGrid.ItemsSource = table.DefaultView;
-
-                // Ustaw listy kolumn do mapowania
-                var cols = table.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList();
-
-                AmountCol.ItemsSource = cols;
-                DateCol.ItemsSource = cols;
-                CatCol.ItemsSource = cols;
-                DescCol.ItemsSource = cols;
-
-                // Proste zgadywanie
-                TryAutoSelect(AmountCol, cols, ["kwota", "amount", "value"]);
-                TryAutoSelect(DateCol, cols, ["data", "date"]);
-                TryAutoSelect(CatCol, cols, ["kategoria", "category", "typ"]);
-                TryAutoSelect(DescCol, cols, ["opis", "description", "tytuł", "title"]);
-            }
-            catch (Exception ex)
-            {
-                ToastSafe($"Błąd odczytu CSV: {ex.Message}", "error");
-            }
-        }
-
-        // ======= CSV / PARSING =======
-
-        private static DataTable ReadCsvToDataTable(string path, char delimiter, bool hasHeader, int maxRows = int.MaxValue)
-        {
-            var table = new DataTable();
-            using var sr = new StreamReader(path, DetectEncoding(path));
-
-            // wczytaj pierwszy wiersz -> nagłówki lub liczba kolumn
-            var firstLine = sr.ReadLine();
-            if (firstLine == null) return table;
-
-            var firstCells = SplitCsvLine(firstLine, delimiter);
-            if (hasHeader)
-            {
-                foreach (var h in firstCells)
+                if (HasHeaderCheckBox.IsChecked == true)
                 {
-                    var name = string.IsNullOrWhiteSpace(h) ? "Kolumna" : h.Trim();
-                    table.Columns.Add(MakeUniqueColumnName(table, name));
+                    headers = ReadCsvLine(sr, delimiter);
+                    if (headers == null) return;
+                    foreach (var h in headers) dt.Columns.Add(h);
+                }
+
+                while ((line = sr.ReadLine()) != null)
+                {
+                    var cells = SplitCsv(line, delimiter);
+                    if (headers == null)
+                    {
+                        // brak nagłówków – utwórz je dynamicznie
+                        if (dt.Columns.Count < cells.Length)
+                            for (int i = dt.Columns.Count; i < cells.Length; i++)
+                                dt.Columns.Add($"Col{i + 1}");
+                    }
+
+                    var row = dt.NewRow();
+                    for (int i = 0; i < Math.Min(cells.Length, dt.Columns.Count); i++)
+                        row[i] = cells[i];
+                    dt.Rows.Add(row);
                 }
             }
-            else
-            {
-                for (int i = 0; i < firstCells.Count; i++)
-                    table.Columns.Add($"Kolumna{i + 1}");
-                // pierwszy wiersz jest danymi
-                var row = table.NewRow();
-                for (int i = 0; i < firstCells.Count; i++)
-                    row[i] = firstCells[i];
-                table.Rows.Add(row);
-            }
 
-            // reszta wierszy
-            string? line;
-            int added = hasHeader ? 0 : 1;
-            while (added < maxRows && (line = sr.ReadLine()) != null)
-            {
-                var cells = SplitCsvLine(line, delimiter);
-                // dopasuj liczbę kolumn
-                while (cells.Count < table.Columns.Count) cells.Add(string.Empty);
-                while (cells.Count > table.Columns.Count) cells.RemoveAt(cells.Count - 1);
+            PreviewGrid.ItemsSource = dt.DefaultView;
 
-                var row = table.NewRow();
-                for (int i = 0; i < table.Columns.Count; i++)
-                    row[i] = cells[i];
-                table.Rows.Add(row);
-                added++;
-            }
+            // zasil listy kolumn
+            var names = dt.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList();
+            AmountCol.ItemsSource = names;
+            DateCol.ItemsSource = names;
+            CatCol.ItemsSource = names;
+            DescCol.ItemsSource = names;
 
-            return table;
+            if (AmountCol.SelectedIndex < 0 && names.Count > 0) AmountCol.SelectedIndex = 0;
+            if (DateCol.SelectedIndex < 0 && names.Count > 1) DateCol.SelectedIndex = 1;
         }
 
-        private static Encoding DetectEncoding(string path)
+        private static string[]? ReadCsvLine(StreamReader sr, char delimiter)
         {
-            // prosty heurystyczny wybór – UTF8 bez BOM zwykle ok
-            return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+            var line = sr.ReadLine();
+            return line == null ? null : SplitCsv(line, delimiter);
         }
 
-        private static List<string> SplitCsvLine(string line, char delimiter)
+        // Prosty parser CSV (obsługa cudzysłowów)
+        private static string[] SplitCsv(string line, char delimiter)
         {
-            // prosty parser CSV z obsługą cudzysłowów
-            var result = new List<string>();
+            var list = new System.Collections.Generic.List<string>();
             var sb = new StringBuilder();
-            bool inQuotes = false;
+            bool quoted = false;
 
             for (int i = 0; i < line.Length; i++)
             {
                 var ch = line[i];
-
-                if (ch == '\"')
+                if (ch == '"')
                 {
-                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '\"')
+                    if (quoted && i + 1 < line.Length && line[i + 1] == '"')
                     {
-                        // podwojony cudzysłów => znak "
-                        sb.Append('\"'); i++;
+                        sb.Append('"'); i++; // escaped quote
                     }
                     else
                     {
-                        inQuotes = !inQuotes;
+                        quoted = !quoted;
                     }
                 }
-                else if (ch == delimiter && !inQuotes)
+                else if (ch == delimiter && !quoted)
                 {
-                    result.Add(sb.ToString());
+                    list.Add(sb.ToString());
                     sb.Clear();
                 }
                 else
@@ -269,103 +127,89 @@ namespace Finly.Pages
                     sb.Append(ch);
                 }
             }
-            result.Add(sb.ToString());
-            return result;
+            list.Add(sb.ToString());
+            return list.ToArray();
         }
 
-        private static string MakeUniqueColumnName(DataTable table, string baseName)
+        private void Import_Click(object sender, RoutedEventArgs e)
         {
-            string name = baseName;
-            int i = 1;
-            while (table.Columns.Contains(name))
+            if (PreviewGrid.ItemsSource is not DataView dv || dv.Table.Rows.Count == 0)
             {
-                i++;
-                name = $"{baseName}_{i}";
-            }
-            return name;
-        }
-
-        private char GetDelimiter()
-        {
-            var sel = (DelimiterBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
-            return sel switch
-            {
-                "Tab" => '\t',
-                "," => ',',
-                _ => ';'
-            };
-        }
-
-        private static bool TryParseAmount(string input, out double value)
-        {
-            value = 0;
-            if (string.IsNullOrWhiteSpace(input)) return false;
-
-            // akceptuj formaty z kropką i przecinkiem
-            var s = input.Trim();
-
-            // usuń spacje tysięczne
-            s = s.Replace(" ", "").Replace("\u00A0", "");
-
-            // zamień przecinek na kropkę (najczęstszy przypadek CSV PL)
-            if (s.Contains(',') && !s.Contains('.'))
-                s = s.Replace(',', '.');
-
-            return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out value);
-        }
-
-        private static bool TryParseDate(string input, string? format, out DateTime date)
-        {
-            date = DateTime.MinValue;
-            if (string.IsNullOrWhiteSpace(input)) return false;
-
-            var s = input.Trim();
-
-            if (!string.IsNullOrWhiteSpace(format))
-            {
-                if (DateTime.TryParseExact(s, format, CultureInfo.InvariantCulture,
-                    DateTimeStyles.None, out date)) return true;
-
-                // Spróbuj też PL
-                if (DateTime.TryParseExact(s, format, new CultureInfo("pl-PL"),
-                    DateTimeStyles.None, out date)) return true;
+                MessageBox.Show("Brak danych do importu.", "Import", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
             }
 
-            // Fallback – spróbuj dowolne znane formaty
-            if (DateTime.TryParse(s, new CultureInfo("pl-PL"), DateTimeStyles.None, out date)) return true;
-            if (DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out date)) return true;
+            string colAmount = AmountCol.SelectedItem?.ToString() ?? "";
+            string colDate = DateCol.SelectedItem?.ToString() ?? "";
+            string colCat = CatCol.SelectedItem?.ToString() ?? "";
+            string colDesc = DescCol.SelectedItem?.ToString() ?? "";
+            string defaultCat = DefaultCategoryBox.Text?.Trim() ?? "";
 
+            if (string.IsNullOrEmpty(colAmount) || string.IsNullOrEmpty(colDate))
+            {
+                MessageBox.Show("Wskaż minimum kolumny: Kwota oraz Data.", "Import", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var fmt = DateFormatBox.Text?.Trim();
+            var culture = CultureInfo.InvariantCulture;
+
+            int imported = 0;
+            foreach (DataRow row in dv.Table.Rows)
+            {
+                // Kwota
+                if (!TryParseDecimal(row[colAmount]?.ToString(), out var amount))
+                    continue;
+
+                // Data
+                if (!TryParseDate(row[colDate]?.ToString(), fmt, culture, out var date))
+                    continue;
+
+                var catName = !string.IsNullOrWhiteSpace(colCat) ? row[colCat]?.ToString() : defaultCat;
+                var desc = !string.IsNullOrWhiteSpace(colDesc) ? row[colDesc]?.ToString() : null;
+
+                // Zapis do bazy: korzystamy z istniejącej tabeli Expenses
+                try
+                {
+                    using var c = Finly.Services.DatabaseService.GetConnection();
+                    using var cmd = c.CreateCommand();
+                    cmd.CommandText = @"INSERT INTO Expenses(Amount, CategoryId, Date, Description, UserId)
+                                        VALUES (@a, NULL, @d, @desc, @u);";
+                    cmd.Parameters.AddWithValue("@a", amount);
+                    cmd.Parameters.AddWithValue("@d", date.ToString("yyyy-MM-dd"));
+                    cmd.Parameters.AddWithValue("@desc", (object?)desc ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@u", Finly.Services.UserService.CurrentUserId);
+                    cmd.ExecuteNonQuery();
+                    imported++;
+                }
+                catch
+                {
+                    // pomiń rekord, lecimy dalej
+                }
+            }
+
+            MessageBox.Show($"Zaimportowano {imported} rekordów.", "Import", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private static bool TryParseDecimal(string? s, out decimal value)
+        {
+            // obsługa przecinka/kropki
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out value))
+                return true;
+            if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.GetCultureInfo("pl-PL"), out value))
+                return true;
             return false;
         }
 
-        private static void TryAutoSelect(ComboBox box, List<string> cols, IEnumerable<string> hints)
+        private static bool TryParseDate(string? s, string? format, CultureInfo culture, out DateTime date)
         {
-            var idx = -1;
-            var lowered = cols.Select(c => c.Trim().ToLowerInvariant()).ToList();
-            foreach (var h in hints)
-            {
-                var i = lowered.FindIndex(c => c.Contains(h));
-                if (i >= 0) { idx = i; break; }
-            }
-            if (idx >= 0) box.SelectedItem = cols[idx];
-        }
+            if (!string.IsNullOrWhiteSpace(format) &&
+                DateTime.TryParseExact(s, format, culture, DateTimeStyles.None, out date))
+                return true;
 
-        private static void ToastSafe(string msg, string type)
-        {
-            try
-            {
-                switch (type)
-                {
-                    case "success": ToastService.Success(msg); break;
-                    case "warning": ToastService.Warning(msg); break;
-                    case "error": ToastService.Error(msg); break;
-                    default: ToastService.Info(msg); break;
-                }
-            }
-            catch
-            {
-                MessageBox.Show(msg);
-            }
+            // fallback
+            return DateTime.TryParse(s, culture, DateTimeStyles.None, out date);
         }
     }
 }
+

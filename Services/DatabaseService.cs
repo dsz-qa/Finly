@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Microsoft.Data.Sqlite;
 using Finly.Models;
 
@@ -7,19 +8,40 @@ namespace Finly.Services
 {
     public static class DatabaseService
     {
-        // Lokalna baza w katalogu aplikacji
-        public static string ConnectionString = "Data Source=budgetApp.db";
+        public static string DbPath { get; } =
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "finly.db");
 
+        // Tylko wspierane opcje; PRAGMA ustawimy w SchemaService.Ensure
+        public static string ConnectionString { get; } =
+            $"Data Source={DbPath};Mode=ReadWriteCreate;Cache=Shared;Pooling=True";
+
+        private static readonly object _initLock = new();
+        private static bool _isInitialized = false;
+
+        /// Zwraca OTWARTE po³¹czenie.
         public static SqliteConnection GetConnection()
-            => new SqliteConnection(ConnectionString);
-
-        public static SqliteConnection OpenAndEnsureSchema()
         {
-            var con = GetConnection();
+            var con = new SqliteConnection(ConnectionString);
             con.Open();
-            SchemaService.Ensure(con);
+
+            // Jednorazowa inicjalizacja schematu/PRAGMA na pierwszym po³¹czeniu
+            if (!_isInitialized)
+            {
+                lock (_initLock)
+                {
+                    if (!_isInitialized)
+                    {
+                        SchemaService.Ensure(con);
+                        _isInitialized = true;
+                    }
+                }
+            }
+
             return con;
         }
+
+        // Alias dla istniej¹cego kodu w pliku
+        private static SqliteConnection OpenAndEnsureSchema() => GetConnection();
 
         private static string ToIsoDate(DateTime dt) => dt.ToString("yyyy-MM-dd");
 
@@ -220,11 +242,13 @@ ORDER BY e.Date DESC, e.Id DESC;";
             if (string.IsNullOrWhiteSpace(categoryName)) return null;
             using var connection = OpenAndEnsureSchema();
 
+            // 1) kategoria u¿ytkownika
             using (var cmd = connection.CreateCommand())
             {
-                cmd.CommandText = @"SELECT Id FROM Categories
-                                    WHERE Name=@name AND COALESCE(UserId,0)=@userId
-                                    LIMIT 1;";
+                cmd.CommandText = @"
+SELECT Id FROM Categories
+WHERE Name=@name AND COALESCE(UserId,0)=@userId
+LIMIT 1;";
                 cmd.Parameters.AddWithValue("@name", categoryName.Trim());
                 cmd.Parameters.AddWithValue("@userId", userId);
                 var r = cmd.ExecuteScalar();
@@ -232,11 +256,13 @@ ORDER BY e.Date DESC, e.Id DESC;";
                     return Convert.ToInt32(r);
             }
 
+            // 2) globalna
             using (var cmd = connection.CreateCommand())
             {
-                cmd.CommandText = @"SELECT Id FROM Categories
-                                    WHERE Name=@name
-                                    LIMIT 1;";
+                cmd.CommandText = @"
+SELECT Id FROM Categories
+WHERE Name=@name
+LIMIT 1;";
                 cmd.Parameters.AddWithValue("@name", categoryName.Trim());
                 var r = cmd.ExecuteScalar();
                 if (r != null && r != DBNull.Value)
@@ -253,6 +279,7 @@ ORDER BY e.Date DESC, e.Id DESC;";
 
             using var connection = OpenAndEnsureSchema();
 
+            // 1) u¿ytkownika
             using (var checkUser = connection.CreateCommand())
             {
                 checkUser.CommandText = @"
@@ -266,6 +293,7 @@ LIMIT 1;";
                     return Convert.ToInt32(res);
             }
 
+            // 2) globalna
             using (var checkGlobal = connection.CreateCommand())
             {
                 checkGlobal.CommandText = @"
@@ -278,6 +306,7 @@ LIMIT 1;";
                     return Convert.ToInt32(res);
             }
 
+            // 3) utwórz u¿ytkownikowi
             using (var insert = connection.CreateCommand())
             {
                 insert.CommandText = @"
@@ -316,3 +345,5 @@ ORDER BY Name;";
         }
     }
 }
+
+

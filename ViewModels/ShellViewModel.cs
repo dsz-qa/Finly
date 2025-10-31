@@ -8,6 +8,7 @@ using System.Windows.Input;
 using Finly.Helpers;
 using Finly.Pages;
 using Finly.Services;
+using Finly.Views;
 
 namespace Finly.ViewModels
 {
@@ -43,7 +44,7 @@ namespace Finly.ViewModels
                 new("budgets",      "Budżety",           () => new BudgetsPage()),
                 new("subscriptions","Subskrypcje",       () => new SubscriptionsPage()),
                 new("goals",        "Cele",              () => new GoalsPage()),
-                new("categories",   "Kategorie",         () => new CategoriesPage()),
+                new("categories", "Kategorie", () => new CategoriesPage()),
                 new("reports",      "Raporty",           () => new ReportsPage()),
                 // jeśli masz ImportPage.xaml (albo ImportSyncPage.xaml) – dopasuj tutaj:
                 new("import",       "Import / Sync",     () => new ImportPage()),

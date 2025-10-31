@@ -28,10 +28,13 @@ CREATE TABLE IF NOT EXISTS Users(
     CreatedAt    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS Categories(
-    Id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    Name   TEXT NOT NULL,
-    UserId INTEGER NULL
+CREATE TABLE IF NOT EXISTS Expenses(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    CategoryId INTEGER NOT NULL,
+    Amount REAL NOT NULL,
+    Date TEXT NOT NULL,
+    Description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS Expenses(
@@ -45,7 +48,7 @@ CREATE TABLE IF NOT EXISTS Expenses(
                 cmd.ExecuteNonQuery();
             }
 
-            // Kolumna UserId (gdyby ktoś miał starą bazę)
+            // Kolumna UserId (dla starszych baz)
             if (!ColumnExists(con, "Categories", "UserId"))
             {
                 using var alter = con.CreateCommand();
@@ -64,20 +67,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS IX_Categories_User_Name
                 idx.ExecuteNonQuery();
             }
 
-            using (var check = con.CreateCommand())
-            {
-                check.CommandText = "SELECT COUNT(1) FROM Categories;";
-                var cnt = Convert.ToInt32(check.ExecuteScalar());
-                if (cnt == 0)
-                {
-                    using var seed = con.CreateCommand();
-                    seed.CommandText = @"
-INSERT INTO Categories (Name) VALUES ('Jedzenie');
-INSERT INTO Categories (Name) VALUES ('Transport');
-INSERT INTO Categories (Name) VALUES ('Rachunki');";
-                    seed.ExecuteNonQuery();
-                }
-            }
+            // 🟢 Nie dodajemy już domyślnych kategorii
+            // (każdy użytkownik tworzy je sam po dodaniu pierwszego wydatku)
 
             tx.Commit();
         }

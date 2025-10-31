@@ -7,6 +7,48 @@ namespace Finly.Services
 {
     public static class DatabaseService
     {
+        /// <summary>
+        /// Wo³aj po zalogowaniu: tworzy wymagane tabele (bez seedów).
+        /// </summary>
+        public static void EnsureCoreTables()
+        {
+            using var conn = GetOpenConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS Users(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Username TEXT NOT NULL UNIQUE,
+    PasswordHash TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS Categories(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    Name TEXT NOT NULL,
+    Icon TEXT NOT NULL DEFAULT ' ',
+    Color TEXT NOT NULL DEFAULT '#607D8B',
+    Type TEXT NOT NULL CHECK(Type IN ('Expense','Income','Saving')) DEFAULT 'Expense',
+    IsDeleted INTEGER NOT NULL DEFAULT 0,
+    CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(UserId, Name) WHERE IsDeleted = 0,
+    FOREIGN KEY(UserId) REFERENCES Users(Id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Expenses(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    CategoryId INTEGER NOT NULL,
+    Amount REAL NOT NULL,
+    Description TEXT,
+    Date TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(UserId) REFERENCES Users(Id) ON DELETE CASCADE,
+    FOREIGN KEY(CategoryId) REFERENCES Categories(Id) ON DELETE CASCADE
+);
+";
+            cmd.ExecuteNonQuery();
+        }
         // Lokalna baza w katalogu aplikacji
         public static string ConnectionString = "Data Source=budgetApp.db";
 
@@ -314,5 +356,34 @@ ORDER BY Name;";
 
             return list;
         }
+
+        public static SqliteConnection GetOpenConnection()
+        {
+            var conn = new SqliteConnection(DatabaseService.ConnectionString);
+            conn.Open();
+            return conn;
+        }
+
+        public static void EnsureTables()
+        {
+            using var conn = GetOpenConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+CREATE TABLE IF NOT EXISTS Categories(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    Name TEXT NOT NULL,
+    Icon TEXT NOT NULL,
+    Color TEXT NOT NULL,
+    Type TEXT NOT NULL CHECK(Type IN ('Expense','Income','Saving')),
+    IsDeleted INTEGER NOT NULL DEFAULT 0,
+    CreatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS IX_Categories_User_Name 
+ON Categories(UserId, Name) WHERE IsDeleted = 0;
+";
+            cmd.ExecuteNonQuery();
+        }
     }
 }
+

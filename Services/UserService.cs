@@ -39,33 +39,26 @@ namespace Finly.Services
 
         // ===== Publiczne API =====
 
-        public static bool Register(string username, string password)
+        public static bool Register(string username, string passwordHash)
         {
-            var u = Normalize(username);
-            if (u is null || string.IsNullOrWhiteSpace(password)) return false;
+            using var conn = DatabaseService.GetOpenConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "INSERT INTO Users (Username, PasswordHash) VALUES (@u, @p);";
+            cmd.Parameters.AddWithValue("@u", username);
+            cmd.Parameters.AddWithValue("@p", passwordHash);
 
-            using var con = new SqliteConnection(ConnectionString);
-            con.Open();
-            EnsureUsersSchema(con);
-
-            // Czy login wolny?
-            using (var check = con.CreateCommand())
+            int affected = cmd.ExecuteNonQuery();
+            if (affected > 0)
             {
-                check.CommandText = "SELECT 1 FROM Users WHERE lower(Username) = lower($u) LIMIT 1;";
-                check.Parameters.AddWithValue("$u", u);
-                var exists = check.ExecuteScalar();
-                if (exists != null && exists != DBNull.Value) return false;
-            }
+                // Pobranie ID ostatniego dodanego u¿ytkownika
+                using var lastCmd = conn.CreateCommand();
+                lastCmd.CommandText = "SELECT last_insert_rowid();";
+                long newId = (long)(lastCmd.ExecuteScalar() ?? 0);
 
-            // Wstaw
-            using (var ins = con.CreateCommand())
-            {
-                ins.CommandText = @"INSERT INTO Users (Username, PasswordHash)
-                                    VALUES ($u, $ph);";
-                ins.Parameters.AddWithValue("$u", u);
-                ins.Parameters.AddWithValue("$ph", HashPassword(password));
-                return ins.ExecuteNonQuery() == 1;
+                Console.WriteLine($"Zarejestrowano nowego u¿ytkownika: {username} (Id={newId})");
+                return true;
             }
+            return false;
         }
 
         public static bool IsUsernameAvailable(string username)
@@ -116,17 +109,16 @@ namespace Finly.Services
 
         public static int GetUserIdByUsername(string username)
         {
-            var u = Normalize(username) ?? string.Empty;
+            using var conn = DatabaseService.GetOpenConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id FROM Users WHERE Username = @u LIMIT 1;";
+            cmd.Parameters.AddWithValue("@u", username);
 
-            using var con = new SqliteConnection(ConnectionString);
-            con.Open();
-            EnsureUsersSchema(con);
+            var result = cmd.ExecuteScalar();
+            if (result != null && int.TryParse(result.ToString(), out int id))
+                return id;
 
-            using var cmd = con.CreateCommand();
-            cmd.CommandText = "SELECT Id FROM Users WHERE lower(Username) = lower($u) LIMIT 1;";
-            cmd.Parameters.AddWithValue("$u", u);
-            var obj = cmd.ExecuteScalar();
-            return (obj is null || obj == DBNull.Value) ? -1 : Convert.ToInt32(obj);
+            return 0;
         }
 
         /// <summary>Usuwa u¿ytkownika i powi¹zane dane (Expenses, kategorie u¿ytkownika).</summary>

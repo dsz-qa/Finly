@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Controls;
-using Finly.Models;
 using Finly.Services;
 
 namespace Finly.Pages
@@ -10,52 +9,62 @@ namespace Finly.Pages
     {
         private readonly int _userId;
 
-        public AddExpensePage() : this(SafeGetUserId()) { }
-
+        //  Ten konstruktor jest wywoływany przez ShellWindow
         public AddExpensePage(int userId)
         {
             InitializeComponent();
             _userId = userId;
         }
 
-        private static int SafeGetUserId()
-        {
-            try { return UserService.GetCurrentUserId(); }
-            catch { return 0; }
-        }
+        //  Dodatkowy konstruktor bez parametrów (jeśli ktoś używa go w XAML)
+        public AddExpensePage() : this(UserService.CurrentUserId) { }
 
         private void AddButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(AmountBox.Text) ||
-                string.IsNullOrWhiteSpace(CategoryBox.Text) ||
-                !DateBox.SelectedDate.HasValue ||
-                string.IsNullOrWhiteSpace(DescriptionBox.Text))
+            try
             {
-                ToastService.Warning("Uzupełnij wszystkie pola.");
-                return;
+                if (string.IsNullOrWhiteSpace(CategoryBox.Text) ||
+                    string.IsNullOrWhiteSpace(AmountBox.Text))
+                {
+                    ToastService.Warning("Uzupełnij kategorię i kwotę.");
+                    return;
+                }
+
+                if (!decimal.TryParse(AmountBox.Text, out decimal amount))
+                {
+                    ToastService.Error("Wprowadź poprawną kwotę (np. 123.45).");
+                    return;
+                }
+
+                if (_userId <= 0)
+                {
+                    ToastService.Error("Brak zalogowanego użytkownika.");
+                    return;
+                }
+
+                //  Dodaj wydatek (tworzy kategorię, jeśli jej nie ma)
+                ExpenseService.AddExpense(
+                    userId: _userId,
+                    categoryName: CategoryBox.Text.Trim(),
+                    amount: amount,
+                    description: DescriptionBox.Text,
+                    date: DateBox.SelectedDate ?? DateTime.Now
+                );
+
+                ToastService.Success("Wydatek został dodany pomyślnie!");
+                CategoryService.GetCategorySummary(_userId); // aktualizuje dane w tle
+
+                CategoryBox.Text = string.Empty;
+                AmountBox.Text = string.Empty;
+                DescriptionBox.Text = string.Empty;
+                DateBox.SelectedDate = DateTime.Now;
+
+                (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("Dashboard");
             }
-
-            if (!double.TryParse(AmountBox.Text, out double amount))
+            catch (Exception ex)
             {
-                ToastService.Error("Wprowadź poprawną kwotę.");
-                return;
+                ToastService.Error($"Błąd podczas dodawania wydatku: {ex.Message}");
             }
-
-            int categoryId = DatabaseService.GetOrCreateCategoryId(CategoryBox.Text.Trim(), _userId);
-
-            var expense = new Expense
-            {
-                Amount = amount,
-                CategoryId = categoryId,
-                Date = DateBox.SelectedDate!.Value,
-                Description = DescriptionBox.Text,
-                UserId = _userId
-            };
-
-            DatabaseService.AddExpense(expense);
-            ToastService.Success("Dodano wydatek.");
-
-            (Window.GetWindow(this) as Finly.Shell.ShellWindow)?.NavigateTo("Dashboard");
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)

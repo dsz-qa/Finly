@@ -240,7 +240,7 @@ namespace Finly.Shell
         { RightHost.Content = new GoalsPage(); SetActiveNav(NavGoals); SetActiveFooter(null); }
 
         private void Nav_Categories_Click(object s, RoutedEventArgs e)
-        { RightHost.Content = new CategoriesPage(); SetActiveNav(NavCategories); SetActiveFooter(null); }
+        { RightHost.Content = new CategoriesPage(); }
 
         private void Nav_Reports_Click(object s, RoutedEventArgs e)
         { RightHost.Content = new ReportsPage(); SetActiveNav(NavReports); SetActiveFooter(null); }

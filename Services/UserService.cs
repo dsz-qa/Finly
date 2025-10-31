@@ -32,12 +32,27 @@ namespace Finly.Services
 
         // ===== Rejestracja / logowanie =====
 
+        // Zachowanie wstecznej kompatybilnoœci – konto osobiste
         public static bool Register(string username, string password)
+            => Register(username, password, AccountType.Personal, null, null, null, null, null);
+
+        // Nowy overload: zapis typu konta + opcjonalne dane firmy
+        public static bool Register(
+            string username,
+            string password,
+            AccountType accountType,
+            string? companyName,
+            string? nip,
+            string? regon,
+            string? krs,
+            string? companyAddress)
         {
             var u = Normalize(username);
             if (u is null || string.IsNullOrWhiteSpace(password)) return false;
 
             using var con = DatabaseService.GetConnection();
+            // Upewnij siê, ¿e schemat jest aktualny
+            SchemaService.Ensure(con);
 
             // Czy login wolny?
             using (var check = con.CreateCommand())
@@ -48,12 +63,19 @@ namespace Finly.Services
                 if (exists != null && exists != DBNull.Value) return false;
             }
 
-            // Wstaw
             using (var ins = con.CreateCommand())
             {
-                ins.CommandText = @"INSERT INTO Users (Username, PasswordHash) VALUES ($u, $ph);";
+                ins.CommandText = @"
+INSERT INTO Users (Username, PasswordHash, AccountType, CompanyName, NIP, REGON, KRS, CompanyAddress)
+VALUES ($u, $ph, $type, $cname, $nip, $regon, $krs, $caddr);";
                 ins.Parameters.AddWithValue("$u", u);
                 ins.Parameters.AddWithValue("$ph", HashPassword(password));
+                ins.Parameters.AddWithValue("$type", accountType == AccountType.Business ? "Business" : "Personal");
+                ins.Parameters.AddWithValue("$cname", (object?)companyName ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$nip", (object?)nip ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$regon", (object?)regon ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$krs", (object?)krs ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$caddr", (object?)companyAddress ?? DBNull.Value);
                 return ins.ExecuteNonQuery() == 1;
             }
         }
@@ -176,7 +198,7 @@ namespace Finly.Services
         private static bool VerifyPassword(string password, string storedBase64Sha256)
             => string.Equals(HashPassword(password), storedBase64Sha256, StringComparison.Ordinal);
 
-        /// Idempotentna definicja Users, jeœli chcia³abyœ wo³aæ niezale¿nie.
+        /// Idempotentna definicja Users (w razie potrzeby)
         private static void EnsureUsersSchema(SqliteConnection con)
         {
             using var cmd = con.CreateCommand();
@@ -193,7 +215,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
             cmd.ExecuteNonQuery();
         }
 
-        /// Usuwa konto u¿ytkownika i wszystkie jego dane (wydatki, kategorie, banki).
+        /// Usuwa konto u¿ytkownika i dane zale¿ne.
         public static bool DeleteAccount(int userId)
         {
             try
@@ -210,9 +232,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
                     cmd.ExecuteNonQuery();
                 }
 
-                Exec("DELETE FROM Expenses       WHERE UserId=@id;");
-                Exec("DELETE FROM Categories     WHERE UserId=@id;");
-                Exec("DELETE FROM BankAccounts   WHERE UserId=@id;");
+                Exec("DELETE FROM Expenses        WHERE UserId=@id;");
+                Exec("DELETE FROM Categories      WHERE UserId=@id;");
+                Exec("DELETE FROM BankAccounts    WHERE UserId=@id;");
                 Exec("DELETE FROM BankConnections WHERE UserId=@id;");
 
                 using (var del = con.CreateCommand())
@@ -235,15 +257,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
             }
         }
 
-
+        // Profil – zgodnoœæ z nowymi kolumnami (NIP/CompanyNip)
         public static UserProfile GetProfile(int userId)
         {
             using var c = DatabaseService.GetConnection();
             using var cmd = c.CreateCommand();
-            cmd.CommandText = @"SELECT FirstName, LastName, Address,
-                               CompanyName, CompanyNip, CompanyAddress,
-                               Email
-                        FROM Users WHERE Id=@id;";
+            cmd.CommandText = @"
+SELECT FirstName, LastName, Address,
+       CompanyName,
+       COALESCE(NIP, CompanyNip) as NipCompat,
+       CompanyAddress,
+       Email
+FROM Users WHERE Id=@id;";
             cmd.Parameters.AddWithValue("@id", userId);
             using var r = cmd.ExecuteReader();
             if (!r.Read()) return new UserProfile();
@@ -254,10 +279,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
                 LastName = r.IsDBNull(1) ? null : r.GetString(1),
                 Address = r.IsDBNull(2) ? null : r.GetString(2),
                 CompanyName = r.IsDBNull(3) ? null : r.GetString(3),
-                CompanyNip = r.IsDBNull(4) ? null : r.GetString(4),
+                CompanyNip = r.IsDBNull(4) ? null : r.GetString(4), // u¿ywa COALESCE
                 CompanyAddress = r.IsDBNull(5) ? null : r.GetString(5),
-                // Email mamy te¿ osobno, ale niech siê wype³ni, jeœli chcesz u¿ywaæ w UI:
-                // mo¿esz dodaæ do modelu, jeœli przyda siê do edycji
+                // Email (6) jest dostêpny, jeœli bêdziesz chcia³a dodaæ do modelu
             };
         }
 
@@ -271,14 +295,14 @@ UPDATE Users SET
     LastName       = @ln,
     Address        = @addr,
     CompanyName    = @cname,
-    CompanyNip     = @cnip,
+    NIP            = @nip,           -- nowa kolumna
     CompanyAddress = @caddr
 WHERE Id=@id;";
             cmd.Parameters.AddWithValue("@fn", (object?)p.FirstName ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@ln", (object?)p.LastName ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@addr", (object?)p.Address ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@cname", (object?)p.CompanyName ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@cnip", (object?)p.CompanyNip ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@nip", (object?)p.CompanyNip ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@caddr", (object?)p.CompanyAddress ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id", userId);
             cmd.ExecuteNonQuery();

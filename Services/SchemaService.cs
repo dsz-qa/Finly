@@ -5,20 +5,14 @@ namespace Finly.Services
 {
     public static class SchemaService
     {
-        // Chroni przed równoległymi migracjami i „database is locked”
         private static readonly object _schemaLock = new();
 
-        /// <summary>
-        /// Gwarantuje istnienie schematu bazy i wykonuje brakujące migracje.
-        /// Bezpieczna przy wielokrotnym wywołaniu.
-        /// </summary>
         public static void Ensure(SqliteConnection con)
         {
             if (con is null) throw new ArgumentNullException(nameof(con));
 
             lock (_schemaLock)
             {
-                // Ustawienia runtime (poza transakcją)
                 using (var p = con.CreateCommand())
                 {
                     p.CommandText = @"PRAGMA busy_timeout = 5000;
@@ -28,7 +22,6 @@ namespace Finly.Services
 
                 using var tx = con.BeginTransaction();
 
-                // Helper do komend w obrębie tej transakcji
                 SqliteCommand Cmd(string sql)
                 {
                     var c = con.CreateCommand();
@@ -37,10 +30,8 @@ namespace Finly.Services
                     return c;
                 }
 
-                // Helper do sprawdzania kolumn
-                bool Col(string table, string col) => ColumnExists(con, tx, table, col);
+                bool ColTx(string table, string col) => ColumnExists(con, tx, table, col);
 
-                // ---------- Tabele (IF NOT EXISTS) ----------
                 using (var cmd = Cmd(@"
 CREATE TABLE IF NOT EXISTS Users(
     Id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,8 +42,12 @@ CREATE TABLE IF NOT EXISTS Users(
     LastName        TEXT NULL,
     Address         TEXT NULL,
     CompanyName     TEXT NULL,
-    CompanyNip      TEXT NULL,
+    CompanyNip      TEXT NULL, -- stara kolumna (zgodność)
     CompanyAddress  TEXT NULL,
+    AccountType     TEXT NULL,
+    NIP             TEXT NULL,
+    REGON           TEXT NULL,
+    KRS             TEXT NULL,
     CreatedAt       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -96,21 +91,43 @@ CREATE TABLE IF NOT EXISTS BankAccounts(
                     cmd.ExecuteNonQuery();
                 }
 
-                // ---------- Migracje starych baz ----------
-                // Users – brakujące kolumny profilu/Email
-                if (!Col("Users", "Email")) Cmd("ALTER TABLE Users ADD COLUMN Email           TEXT NULL;").ExecuteNonQuery();
-                if (!Col("Users", "FirstName")) Cmd("ALTER TABLE Users ADD COLUMN FirstName       TEXT NULL;").ExecuteNonQuery();
-                if (!Col("Users", "LastName")) Cmd("ALTER TABLE Users ADD COLUMN LastName        TEXT NULL;").ExecuteNonQuery();
-                if (!Col("Users", "Address")) Cmd("ALTER TABLE Users ADD COLUMN Address         TEXT NULL;").ExecuteNonQuery();
-                if (!Col("Users", "CompanyName")) Cmd("ALTER TABLE Users ADD COLUMN CompanyName     TEXT NULL;").ExecuteNonQuery();
-                if (!Col("Users", "CompanyNip")) Cmd("ALTER TABLE Users ADD COLUMN CompanyNip      TEXT NULL;").ExecuteNonQuery();
-                if (!Col("Users", "CompanyAddress")) Cmd("ALTER TABLE Users ADD COLUMN CompanyAddress  TEXT NULL;").ExecuteNonQuery();
+                // ---- migracje idempotentne ----
+                void AddColumnIfMissing(string table, string column, string sqlType, string defaultClause = "")
+                {
+                    if (!ColumnExists(con, table, column)) // <- przeciążenie bez tx
+                    {
+                        using var alter = con.CreateCommand();
+                        alter.Transaction = tx;
+                        alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {sqlType} {defaultClause};";
+                        alter.ExecuteNonQuery();
+                    }
+                }
 
-                // Categories – w razie bardzo starej bazy bez UserId
-                if (!Col("Categories", "UserId"))
+                AddColumnIfMissing("Users", "AccountType", "TEXT", "DEFAULT 'Personal'");
+                AddColumnIfMissing("Users", "CompanyName", "TEXT");
+                AddColumnIfMissing("Users", "NIP", "TEXT");
+                AddColumnIfMissing("Users", "REGON", "TEXT");
+                AddColumnIfMissing("Users", "KRS", "TEXT");
+                AddColumnIfMissing("Users", "CompanyAddress", "TEXT");
+
+                // zgodność wstecz: CompanyNip -> NIP
+                bool hasCompanyNip = ColTx("Users", "CompanyNip");
+                bool hasNip = ColTx("Users", "NIP");
+                if (hasCompanyNip && !hasNip)
+                {
+                    Cmd("ALTER TABLE Users ADD COLUMN NIP TEXT;").ExecuteNonQuery();
+                    Cmd("UPDATE Users SET NIP = CompanyNip WHERE NIP IS NULL AND CompanyNip IS NOT NULL;").ExecuteNonQuery();
+                }
+
+                if (!ColTx("Users", "Email")) Cmd("ALTER TABLE Users ADD COLUMN Email     TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "FirstName")) Cmd("ALTER TABLE Users ADD COLUMN FirstName TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "LastName")) Cmd("ALTER TABLE Users ADD COLUMN LastName  TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "Address")) Cmd("ALTER TABLE Users ADD COLUMN Address   TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "CreatedAt")) Cmd("ALTER TABLE Users ADD COLUMN CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP;").ExecuteNonQuery();
+
+                if (!ColTx("Categories", "UserId"))
                     Cmd("ALTER TABLE Categories ADD COLUMN UserId INTEGER NULL;").ExecuteNonQuery();
 
-                // ---------- Indeksy ----------
                 using (var idx = Cmd(@"
 CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
     ON Users(Username COLLATE NOCASE);
@@ -122,7 +139,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS IX_Categories_User_Name
                     idx.ExecuteNonQuery();
                 }
 
-                // ---------- Seed kategorii (gdy pusto) ----------
                 using (var check = Cmd("SELECT COUNT(1) FROM Categories;"))
                 {
                     var cnt = Convert.ToInt32(check.ExecuteScalar());
@@ -140,13 +156,27 @@ INSERT INTO Categories (Name) VALUES ('Rachunki');");
             }
         }
 
+        // --- PRAGMA z transakcją (istniejące) ---
         private static bool ColumnExists(SqliteConnection con, SqliteTransaction tx, string table, string column)
         {
             using var cmd = con.CreateCommand();
             cmd.Transaction = tx;
-            // PRAGMA table_info respektuje transakcję
             cmd.CommandText = $"PRAGMA table_info('{table.Replace("'", "''")}');";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var name = r["name"]?.ToString();
+                if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
 
+        // --- NOWE przeciążenie bez transakcji (dla prostych sprawdzeń) ---
+        private static bool ColumnExists(SqliteConnection con, string table, string column)
+        {
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info('{table.Replace("'", "''")}');";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -158,6 +188,8 @@ INSERT INTO Categories (Name) VALUES ('Rachunki');");
         }
     }
 }
+
+
 
 
 

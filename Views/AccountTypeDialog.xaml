@@ -1,0 +1,27 @@
+﻿<Window x:Class="Finly.Views.AccountTypeDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Wybór typu konta"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="{DynamicResource App.Background}">
+	<Border Padding="24" Margin="8" Background="{DynamicResource App.Background}">
+		<StackPanel>
+			<TextBlock Text="Jakie konto chcesz założyć?"
+                       Foreground="{DynamicResource App.Foreground}"
+                       FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
+			<StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+				<Button x:Name="BtnPersonal"
+                        Content="Konto osobiste"
+                        MinWidth="160" Padding="12,8" Margin="0,0,12,0"
+                        Click="BtnPersonal_Click"/>
+				<Button x:Name="BtnBusiness"
+                        Content="Konto firmowe"
+                        MinWidth="160" Padding="12,8"
+                        Click="BtnBusiness_Click"/>
+			</StackPanel>
+		</StackPanel>
+	</Border>
+</Window>

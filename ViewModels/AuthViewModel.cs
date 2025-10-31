@@ -1,15 +1,76 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Linq; // <-- potrzebne dla .All()
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Windows.Media;
+using Finly.Models;
 using Finly.Services;
 
 namespace Finly.ViewModels
 {
     public class AuthViewModel : INotifyPropertyChanged
     {
-        // ===== Pola prywatne =====
+        // ===== TYP KONTA =====
+        private AccountType _accountType = AccountType.Personal;
+        public AccountType AccountType
+        {
+            get => _accountType;
+            set
+            {
+                if (Set(ref _accountType, value))
+                    OnPropertyChanged(nameof(IsBusinessAccount));
+            }
+        }
+        public bool IsBusinessAccount => AccountType == AccountType.Business;
+
+        // ===== DANE FIRMOWE =====
+        private string _companyName = string.Empty;
+        public string CompanyName { get => _companyName; set => Set(ref _companyName, value ?? string.Empty); }
+
+        private string _nip = string.Empty;
+        public string NIP { get => _nip; set => Set(ref _nip, value ?? string.Empty); }
+
+        private string _regon = string.Empty;
+        public string REGON { get => _regon; set => Set(ref _regon, value ?? string.Empty); }
+
+        private string _krs = string.Empty;
+        public string KRS { get => _krs; set => Set(ref _krs, value ?? string.Empty); }
+
+        private string _companyAddress = string.Empty;
+        public string CompanyAddress { get => _companyAddress; set => Set(ref _companyAddress, value ?? string.Empty); }
+
+        // ===== Walidacja NIP/REGON (PL) =====
+        private static bool IsValidNip(string nip)
+        {
+            var digits = new string((nip ?? "").Replace("-", "").Trim().ToCharArray());
+            if (digits.Length != 10 || !digits.All(char.IsDigit)) return false;
+            int[] w = { 6, 5, 7, 2, 3, 4, 5, 6, 7 };
+            int sum = 0;
+            for (int i = 0; i < 9; i++) sum += (digits[i] - '0') * w[i];
+            int c = sum % 11;
+            return c == (digits[9] - '0');
+        }
+
+        private static bool IsValidRegon(string regon)
+        {
+            var d = new string((regon ?? "").Replace("-", "").Trim().ToCharArray());
+            if (!(d.Length == 9 || d.Length == 14) || !d.All(char.IsDigit)) return false;
+            int[] w9 = { 8, 9, 2, 3, 4, 5, 6, 7 };
+            int[] w14 = { 2, 4, 8, 5, 0, 9, 7, 3, 6, 1, 2, 4, 8 };
+            if (d.Length == 9)
+            {
+                int s = 0; for (int i = 0; i < 8; i++) s += (d[i] - '0') * w9[i];
+                return (s % 11 % 10) == (d[8] - '0');
+            }
+            else
+            {
+                int s = 0; for (int i = 0; i < 13; i++) s += (d[i] - '0') * w14[i];
+                return (s % 11 % 10) == (d[13] - '0');
+            }
+        }
+
+        // ===== Pola stanu logowania/rejestracji =====
         private string _username = string.Empty;
         private bool _isLoginMode = true;
 
@@ -22,8 +83,8 @@ namespace Finly.ViewModels
         private string _loginMessage = string.Empty;
         private bool _loginIsError;
 
-        // Widoczność oraz treść haseł (dla panelu rejestracji)
-        private bool _isPasswordVisible = false;          // domyślnie ukryte
+        // Widoczność oraz treść haseł (rejestracja)
+        private bool _isPasswordVisible = false;
         private string _password = string.Empty;
         private string _repeatPassword = string.Empty;
 
@@ -127,7 +188,6 @@ namespace Finly.ViewModels
         }
         public Brush LoginMessageBrush => LoginIsError ? Brushes.IndianRed : Brushes.SeaGreen;
 
-        // Walidacja e-maila i aktywacja rejestracji
         public bool IsEmailValid { get; private set; }
 
         // ===== Wymagania hasła (live) =====
@@ -162,7 +222,6 @@ namespace Finly.ViewModels
             ClearMessages();
             LoginBanner = string.Empty;
             LoginBannerBrush = Brushes.Transparent;
-            // reset widoczności hasła po przełączeniu
             IsPasswordVisible = false;
         }
 
@@ -209,7 +268,7 @@ namespace Finly.ViewModels
             OnPropertyChanged(nameof(CanRegister));
         }
 
-        // ===== Logika: logowanie / rejestracja =====
+        // ===== Logowanie =====
         public bool Login(string password)
         {
             LoginMessage = string.Empty;
@@ -241,6 +300,7 @@ namespace Finly.ViewModels
             return LoggedInUserId > 0;
         }
 
+        // ===== Rejestracja =====
         public bool Register(string password, string confirm)
         {
             ClearMessages();
@@ -253,12 +313,37 @@ namespace Finly.ViewModels
             if (!IsPasswordValid)
                 return Error("Hasło nie spełnia wymagań – popraw czerwone pozycje poniżej.");
 
-            Username = Username.ToLowerInvariant();
+            Username = (Username ?? string.Empty).ToLowerInvariant();
 
             if (!UserService.IsUsernameAvailable(Username))
                 return Error("Nie udało się utworzyć konta. Login jest zajęty.");
 
-            if (!UserService.Register(Username, password))
+            // Walidacja firmowa (gdy Business)
+            if (IsBusinessAccount)
+            {
+                if (string.IsNullOrWhiteSpace(CompanyName))
+                    return Error("Podaj nazwę firmy.");
+                if (!IsValidNip(NIP))
+                    return Error("Podaj poprawny NIP (10 cyfr, poprawna suma kontrolna).");
+                if (!string.IsNullOrWhiteSpace(REGON) && !IsValidRegon(REGON))
+                    return Error("REGON ma niepoprawny format.");
+                if (string.IsNullOrWhiteSpace(CompanyAddress))
+                    return Error("Podaj adres siedziby firmy.");
+            }
+
+            // Rejestracja z zapisem typu konta i ewentualnych danych firmy
+            bool ok = UserService.Register(
+                username: Username,
+                password: password,
+                accountType: AccountType,
+                companyName: CompanyName,
+                nip: NIP,
+                regon: REGON,
+                krs: KRS,
+                companyAddress: CompanyAddress
+            );
+
+            if (!ok)
                 return Error("Nie udało się utworzyć konta. Spróbuj ponownie.");
 
             IsLoginMode = true;
@@ -267,7 +352,7 @@ namespace Finly.ViewModels
             return true;
         }
 
-        // Live-aktualizacja checklisty
+        // ===== Live-checklista haseł =====
         public void UpdatePasswordHints(string password, string confirm)
         {
             var p = password ?? string.Empty;
@@ -301,3 +386,4 @@ namespace Finly.ViewModels
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
+

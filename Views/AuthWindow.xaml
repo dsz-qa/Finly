@@ -28,7 +28,6 @@
         <conv:BoolToBrushConverter x:Key="BoolToBrush"/>
     </Window.Resources>
 
-
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="45"/>
@@ -311,6 +310,32 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- WYBÓR TYPU KONTA: tylko label; wybór robimy w dialogu -->
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
+                        <TextBlock Text="Typ konta:" Margin="0,0,8,0"/>
+                        <TextBlock Text="{Binding AccountType}" FontWeight="SemiBold"/>
+                    </StackPanel>
+
+                    <!-- DANE FIRMOWE — pokazuj tylko gdy konto firmowe -->
+                    <StackPanel Visibility="{Binding IsBusinessAccount, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Dane firmy" FontWeight="SemiBold" Margin="0,12,0,4"/>
+
+                        <TextBlock Text="Nazwa firmy:"/>
+                        <TextBox Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="NIP:"/>
+                        <TextBox Text="{Binding NIP, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="REGON (opcjonalnie):"/>
+                        <TextBox Text="{Binding REGON, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="KRS (opcjonalnie):"/>
+                        <TextBox Text="{Binding KRS, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Adres siedziby:"/>
+                        <TextBox Text="{Binding CompanyAddress, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+                    </StackPanel>
+
                     <TextBlock Text="{Binding RegisterMessage}"
                                Foreground="{Binding RegisterMessageBrush}"
                                Margin="0,0,0,10"
@@ -338,5 +363,6 @@
         </ScrollViewer>
     </Grid>
 </Window>
+
 
 

@@ -1,6 +1,8 @@
-﻿using Finly.Services;
+﻿using Finly.Models;
+using Finly.Services;
 using Finly.Shell;
 using Finly.ViewModels;
+using Finly.Views; // AccountTypeDialog
 using System;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -15,20 +17,23 @@ namespace Finly.Views
     {
         private AuthViewModel VM => (AuthViewModel)DataContext;
 
-        // --- pełny ekran (F11) – gdy true, wyłączamy hook "working area"
+        // Pełny ekran (F11) – przy true wyłączamy korektę "working area"
         private bool _forceFullscreen = false;
 
         public AuthWindow()
         {
             InitializeComponent();
             DataContext = new AuthViewModel();
+
+            // skróty okna
+            KeyDown += Window_KeyDown;
         }
 
         // ===== Hook WinAPI jak w ShellWindow (Maximized == working area) =====
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-            var src = (HwndSource)PresentationSource.FromVisual(this);
+            var src = (HwndSource)PresentationSource.FromVisual(this)!;
             src.AddHook(WndProc);
         }
 
@@ -41,19 +46,17 @@ namespace Finly.Views
                 WmGetMinMaxInfo(hwnd, lParam);
                 handled = true;
             }
-
             return IntPtr.Zero;
         }
 
         private void WmGetMinMaxInfo(IntPtr hwnd, IntPtr lParam)
         {
-            MINMAXINFO mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+            var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
 
             IntPtr monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             if (monitor != IntPtr.Zero)
             {
-                MONITORINFO mi = new MONITORINFO();
-                mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                var mi = new MONITORINFO { cbSize = Marshal.SizeOf(typeof(MONITORINFO)) };
                 if (GetMonitorInfo(monitor, ref mi))
                 {
                     RECT wa = mi.rcWork;    // work area = bez paska zadań
@@ -65,11 +68,10 @@ namespace Finly.Views
                     mmi.ptMaxSize.y = Math.Abs(wa.bottom - wa.top);
                 }
             }
-
             Marshal.StructureToPtr(mmi, lParam, true);
         }
 
-        // WinAPI (dokładnie jak w ShellWindow)
+        // WinAPI
         private const int MONITOR_DEFAULTTONEAREST = 2;
         [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int dwFlags);
         [DllImport("user32.dll", SetLastError = true)] private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
@@ -113,8 +115,7 @@ namespace Finly.Views
 
         private void MaxRestore_Click(object sender, RoutedEventArgs e)
         {
-            if (WindowState == WindowState.Maximized) WindowState = WindowState.Normal;
-            else WindowState = WindowState.Maximized;
+            WindowState = (WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
         }
 
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
@@ -129,7 +130,6 @@ namespace Finly.Views
             if (CloseGlyph != null) CloseGlyph.Foreground = Brushes.WhiteSmoke;
         }
 
-        // helper: czy event pochodzi z danego typu
         private static bool IsInside<T>(DependencyObject? src) where T : DependencyObject
         {
             while (src != null)
@@ -140,8 +140,17 @@ namespace Finly.Views
             return false;
         }
 
-        // ===== Przełączanie paneli (login/registracja) =====
-        private void SwitchToRegister_Click(object sender, RoutedEventArgs e) => VM.SwitchToRegister();
+        // ===== Przełączanie paneli =====
+        private void SwitchToRegister_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new AccountTypeDialog { Owner = this };
+            if (dlg.ShowDialog() == true)
+            {
+                VM.AccountType = dlg.Selected;   // Personal/Business
+                VM.SwitchToRegister();           // pokaż panel rejestracji
+            }
+        }
+
         private void SwitchToLogin_Click(object sender, RoutedEventArgs e) => VM.SwitchToLogin();
 
         // ===== Logowanie =====
@@ -174,6 +183,8 @@ namespace Finly.Views
         private void OnLoginSuccess(int userId)
         {
             UserService.CurrentUserId = userId;
+            UserService.CurrentUserName = VM.Username;
+            UserService.CurrentUserEmail = UserService.GetEmail(userId);
 
             var shell = new ShellWindow();
             Application.Current.MainWindow = shell;
@@ -184,14 +195,12 @@ namespace Finly.Views
         // ===== Rejestracja =====
         private void RegisterButton_Click(object sender, RoutedEventArgs e)
         {
-            var pwd = PwdRegText.Visibility == Visibility.Visible ? PwdRegText.Text : PwdReg.Password;
-            var conf = PwdRegConfirmText.Visibility == Visibility.Visible ? PwdRegConfirmText.Text : PwdRegConfirm.Password;
+            var pass = PwdRegText.Visibility == Visibility.Visible ? PwdRegText.Text : PwdReg.Password;
+            var confirm = PwdRegConfirmText.Visibility == Visibility.Visible ? PwdRegConfirmText.Text : PwdRegConfirm.Password;
 
-            VM.UpdatePasswordHints(pwd, conf);
-
-            if (VM.Register(pwd, conf))
+            if (VM.Register(pass, confirm))
             {
-                RegShowPassword_Unchecked(null!, null!);
+                RegShowPassword_Unchecked(null!, null!); // zaktualizuj PasswordBox-y treścią z TextBox-ów
             }
         }
 
@@ -305,10 +314,10 @@ namespace Finly.Views
                 PwdRegConfirm.Password = PwdRegConfirmText.Text ?? string.Empty;
         }
 
-        // ===== Skróty / fullscreen =====
+        // ===== Start i skróty =====
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            // start jak w ShellWindow – maksymalizacja, ale „work area” (pasek zadań widoczny)
+            // Start w maksymalizacji (working area)
             WindowState = WindowState.Maximized;
         }
 
@@ -316,16 +325,14 @@ namespace Finly.Views
         {
             if (_forceFullscreen)
             {
-                // wróć: włączamy hook, normalne zachowanie Maximize = working area
                 _forceFullscreen = false;
                 WindowStyle = WindowStyle.None;
                 ResizeMode = ResizeMode.CanResize;
-                WindowState = WindowState.Normal;      // wymuś przeliczenie
-                WindowState = WindowState.Maximized;   // i znów Max
+                WindowState = WindowState.Normal;
+                WindowState = WindowState.Maximized;
             }
             else
             {
-                // wyłącz hook i idź w „prawdziwy” fullscreen
                 _forceFullscreen = true;
                 WindowStyle = WindowStyle.None;
                 ResizeMode = ResizeMode.NoResize;
@@ -340,6 +347,7 @@ namespace Finly.Views
         }
     }
 }
+
 
 
 

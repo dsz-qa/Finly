@@ -12,7 +12,7 @@
         Icon="/Assets/Icons/logoFinly.ico"
         Loaded="Window_Loaded">
 
-    <!-- WindowChrome: własny pasek tytułu, nadal można zmieniać rozmiar -->
+    <!-- Pasek tytułu niestandardowy -->
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="48"
                             ResizeBorderThickness="6"
@@ -21,11 +21,11 @@
     </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <!-- Konwertery używane w tym widoku -->
-        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
-        <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
-        <conv:BoolToSymbolConverter x:Key="BoolToSymbol"/>
-        <conv:BoolToBrushConverter x:Key="BoolToBrush"/>
+        <!-- KONWERTERY: UWAGA — namespace = Finly.Helpers.Converters -->
+        <conv:BoolToVisibilityConverter            x:Key="BoolToVisibility"/>
+        <conv:InverseBoolToVisibilityConverter     x:Key="InverseBoolToVisibility"/>
+        <conv:BoolToSymbolConverter                x:Key="BoolToSymbol"/>
+        <conv:BoolToBrushConverter                 x:Key="BoolToBrush"/>
     </Window.Resources>
 
     <Grid>
@@ -42,7 +42,6 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Lewo: logo + tytuł -->
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                 <Image Source="/Assets/Images/logoFinly.png"
                        Width="40" Height="40" Stretch="Uniform" Margin="0,0,8,0"
@@ -53,7 +52,6 @@
                            FontSize="14" VerticalAlignment="Center"/>
             </StackPanel>
 
-            <!-- Prawo: przyciski okna -->
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Width="46" Height="32" Padding="0"
                         Background="Transparent" BorderBrush="{x:Null}"
@@ -91,6 +89,99 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <Grid Background="{DynamicResource App.Background}" Margin="24">
+                <Grid.Resources>
+                    <!-- Paleta (ciemny niebieski) -->
+                    <SolidColorBrush x:Key="AccentBlue"                 Color="#1F63D6"/>
+                    <SolidColorBrush x:Key="AccentBlueHover"            Color="#184FB0"/>
+                    <SolidColorBrush x:Key="AccentBluePressed"          Color="#123E8F"/>
+                    <SolidColorBrush x:Key="AccentBlueDisabledFill"     Color="#1F63D6" Opacity="0.35"/>
+                    <SolidColorBrush x:Key="AccentBlueDisabledBorder"   Color="#1F63D6" Opacity="0.35"/>
+                    <!-- Pomarańcz z logo -->
+                    <SolidColorBrush x:Key="AccentOrange" Color="#F49B32"/>
+
+                    <!-- Separator: pomarańczowa kreska -->
+                    <Style x:Key="OrangeSeparator" TargetType="Separator">
+                        <Setter Property="Margin" Value="0,18,0,18"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Separator">
+                                    <Grid SnapsToDevicePixels="True">
+                                        <!-- poziomy separator -->
+                                        <Border Height="2"
+                  Background="{StaticResource AccentOrange}"
+                  CornerRadius="2"
+                  Opacity="0.9"/>
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+
+
+                    <!-- Baza: pełny niebieski (fill), hover/pressed ciemniej -->
+                    <Style x:Key="FilledBlueButton" TargetType="Button">
+                        <Setter Property="OverridesDefaultStyle" Value="True"/>
+                        <Setter Property="Foreground"      Value="White"/>
+                        <Setter Property="Background"      Value="{StaticResource AccentBlue}"/>
+                        <Setter Property="BorderBrush"     Value="{StaticResource AccentBlue}"/>
+                        <Setter Property="BorderThickness" Value="2.2"/>
+                        <Setter Property="Padding"         Value="12,8"/>
+                        <Setter Property="MinHeight"       Value="40"/>
+                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                        <Setter Property="FontWeight"      Value="SemiBold"/>
+                        <Setter Property="Cursor"          Value="Hand"/>
+                        <Setter Property="SnapsToDevicePixels" Value="True"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bd"
+                  CornerRadius="8"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <!-- Hover: przyciemnij -->
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBlueHover}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBlueHover}"/>
+                                        </Trigger>
+                                        <!-- Pressed: jeszcze ciemniej -->
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBluePressed}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBluePressed}"/>
+                                        </Trigger>
+                                        <!-- Disabled: nadal niebieski, ale wyraźnie przygaszony -->
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentBlueDisabledFill}"/>
+                                            <Setter Property="BorderBrush" Value="{StaticResource AccentBlueDisabledBorder}"/>
+                                            <Setter Property="Foreground"  Value="White" />
+                                            <Setter Property="Cursor"      Value="Arrow"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+
+                    <!-- Uczyń to stylem domyślnym dla WSZYSTKICH przycisków w tym oknie -->
+                    <Style TargetType="Button" BasedOn="{StaticResource FilledBlueButton}"/>
+
+                    <!-- Szeroki wariant do głównych akcji -->
+                    <Style x:Key="WidePrimaryButton" TargetType="Button" BasedOn="{StaticResource FilledBlueButton}">
+                        <Setter Property="MinWidth" Value="320"/>
+                        <Setter Property="Height"   Value="48"/>
+                        <Setter Property="FontSize" Value="16"/>
+                        <Setter Property="Margin"   Value="0,10,0,0"/>
+                    </Style>
+                </Grid.Resources>
+
+
+
+
+
 
                 <!-- ========== PANEL LOGOWANIA ========== -->
                 <StackPanel x:Name="LoginPanel"
@@ -182,19 +273,52 @@
                               Unchecked="LoginShowPassword_Unchecked"/>
 
                     <Button x:Name="LoginBtn"
-                            Content="Zaloguj"
-                            Height="52"
-                            FontSize="16"
-                            Click="LoginButton_Click"
-                            IsDefault="True"/>
+        Content="Zaloguj"
+        Style="{StaticResource WidePrimaryButton}"
+        Click="LoginButton_Click"
+        IsDefault="True"/>
 
-                    <Separator Margin="0,22,0,14"/>
+
+                    <Separator Style="{StaticResource OrangeSeparator}"/>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,0">
                         <TextBlock Text="Nie masz jeszcze konta?" FontSize="15" VerticalAlignment="Center"/>
-                        <Button Content="Zarejestruj się" Click="SwitchToRegister_Click"
+                        <Button Content="Zarejestruj się"
+                                Click="SwitchToRegister_Click"
                                 Height="40" MinWidth="180" FontSize="15" Margin="12,0,0,0"/>
                     </StackPanel>
+
+
+
+                    <!-- INLINE: wybór typu konta (pod "Zarejestruj się") -->
+                    <StackPanel x:Name="AccountTypeChooser"
+            Visibility="Collapsed"
+            Orientation="Vertical"
+            HorizontalAlignment="Center"
+            MaxWidth="480"
+            Margin="0,28,0,0">
+                        <!-- BYŁO 10, ZWIĘKSZYLIŚMY DO 28 -->
+                        <TextBlock Text="Jakie konto chcesz założyć?"
+               FontSize="16"
+               FontWeight="SemiBold"
+               Foreground="{DynamicResource App.Foreground}"
+               HorizontalAlignment="Center"
+               Margin="0,0,0,10"/>
+
+                            
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Grid.Column="0"
+                Content="Konto osobiste"
+                Width="180" Height="40"
+                Click="ChoosePersonal_Click"/>
+
+                            <Button Grid.Column="2"
+                Content="Konto firmowe"
+                Width="180" Height="40"
+                Click="ChooseBusiness_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+
                 </StackPanel>
                 <!-- ========== /PANEL LOGOWANIA ========== -->
 
@@ -310,13 +434,12 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- WYBÓR TYPU KONTA: tylko label; wybór robimy w dialogu -->
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,8">
                         <TextBlock Text="Typ konta:" Margin="0,0,8,0"/>
                         <TextBlock Text="{Binding AccountType}" FontWeight="SemiBold"/>
                     </StackPanel>
 
-                    <!-- DANE FIRMOWE — pokazuj tylko gdy konto firmowe -->
+                    <!-- DANE FIRMOWE — tylko dla firm -->
                     <StackPanel Visibility="{Binding IsBusinessAccount, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Dane firmy" FontWeight="SemiBold" Margin="0,12,0,4"/>
 
@@ -344,12 +467,11 @@
                                FontSize="15"/>
 
                     <Button Content="Utwórz konto"
-                            Height="52"
-                            FontSize="16"
-                            Click="RegisterButton_Click"
-                            IsEnabled="{Binding CanRegister}"/>
+        Style="{StaticResource WidePrimaryButton}"
+        Click="RegisterButton_Click"
+        IsEnabled="{Binding CanRegister}"/>
 
-                    <Separator Margin="0,22,0,14"/>
+                    <Separator Style="{StaticResource OrangeSeparator}"/>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,0">
                         <TextBlock Text="Masz już konto?" FontSize="15" VerticalAlignment="Center"/>
@@ -363,6 +485,8 @@
         </ScrollViewer>
     </Grid>
 </Window>
+
+
 
 
 

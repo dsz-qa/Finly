@@ -250,7 +250,10 @@ namespace Finly.Shell
 
         // ====== Stopka ======
         private void OpenProfile_Click(object s, RoutedEventArgs e)
-        { NavigateTo("settings"); SetActiveNav(null); SetActiveFooter(FooterAccount); }
+        {
+            RightHost.Content = new AccountPage(UserService.CurrentUserId);
+            SetActiveNav(null); SetActiveFooter(FooterAccount);
+        }
 
         private void OpenSettings_Click(object s, RoutedEventArgs e)
         { NavigateTo("settings"); SetActiveNav(null); SetActiveFooter(FooterSettings); }
@@ -276,5 +279,6 @@ namespace Finly.Shell
             if (FooterSettings != null) FooterSettings.IsChecked = active == FooterSettings;
             if (FooterLogout != null) FooterLogout.IsChecked = false;
         }
+
     }
 }

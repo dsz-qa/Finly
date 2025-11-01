@@ -1,32 +1,30 @@
+using Finly.Models;
+using Microsoft.Data.Sqlite;
 using System;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.Data.Sqlite;
 
 namespace Finly.Services
 {
     /// <summary>
-    /// Proste zarzπdzanie uøytkownikami + "sesja" aktualnie zalogowanego.
-    /// Oparte na Microsoft.Data.Sqlite (SQLite w .NET).
+    /// ZarzƒÖdzanie u≈ºytkownikami + stan ‚Äûkto zalogowany‚Äù.
     /// </summary>
     public static class UserService
     {
-        // ===== "Sesja" (kto jest zalogowany) =====
+        // ===== Stan logowania =====
         public static int CurrentUserId { get; set; } = 0;
         public static string? CurrentUserName { get; set; }
         public static string? CurrentUserEmail { get; set; }
 
-        /// <summary>Uøywana przez Dashboard/Charts.</summary>
         public static int GetCurrentUserId() => CurrentUserId;
 
-        /// <summary>Ustaw po udanym logowaniu.</summary>
         public static void SetCurrentUser(string username)
         {
             CurrentUserName = username;
             CurrentUserId = GetUserIdByUsername(username);
+            CurrentUserEmail = GetEmail(CurrentUserId);
         }
 
-        /// <summary>WyczyúÊ stan przy wylogowaniu.</summary>
         public static void ClearCurrentUser()
         {
             CurrentUserId = 0;
@@ -34,31 +32,68 @@ namespace Finly.Services
             CurrentUserEmail = null;
         }
 
-        // Wygodny dostÍp do connection stringa z DatabaseService.
-        private static string ConnectionString => DatabaseService.ConnectionString;
-
-        // ===== Publiczne API =====
-
-        public static bool Register(string username, string passwordHash)
+        // ===== Typ konta =====
+        public static AccountType GetAccountType(int userId)
         {
-            using var conn = DatabaseService.GetOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "INSERT INTO Users (Username, PasswordHash) VALUES (@u, @p);";
-            cmd.Parameters.AddWithValue("@u", username);
-            cmd.Parameters.AddWithValue("@p", passwordHash);
+            using var con = DatabaseService.GetConnection();
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = "SELECT AccountType FROM Users WHERE Id=@id LIMIT 1;";
+            cmd.Parameters.AddWithValue("@id", userId);
+            var raw = cmd.ExecuteScalar()?.ToString();
 
-            int affected = cmd.ExecuteNonQuery();
-            if (affected > 0)
+            return string.Equals(raw, "Business", StringComparison.OrdinalIgnoreCase)
+                ? AccountType.Business
+                : AccountType.Personal;
+        }
+
+        // ===== Rejestracja / logowanie =====
+
+        // Uproszczona wersja ‚Äì zachowana kompatybilno≈õƒá
+        public static bool Register(string username, string password)
+            => Register(username, password, AccountType.Personal, null, null, null, null, null);
+
+        // Pe≈Çna wersja rejestracji z typem konta i danymi firmy
+        public static bool Register(
+            string username,
+            string password,
+            AccountType accountType,
+            string? companyName,
+            string? nip,
+            string? regon,
+            string? krs,
+            string? companyAddress)
+        {
+            var u = Normalize(username);
+            if (u is null || string.IsNullOrWhiteSpace(password)) return false;
+
+            using var con = DatabaseService.GetConnection();
+            SchemaService.Ensure(con); // upewniamy siƒô, ≈ºe tabele istniejƒÖ
+
+            // Czy login ju≈º istnieje?
+            using (var check = con.CreateCommand())
             {
-                // Pobranie ID ostatniego dodanego uøytkownika
-                using var lastCmd = conn.CreateCommand();
-                lastCmd.CommandText = "SELECT last_insert_rowid();";
-                long newId = (long)(lastCmd.ExecuteScalar() ?? 0);
-
-                Console.WriteLine($"Zarejestrowano nowego uøytkownika: {username} (Id={newId})");
-                return true;
+                check.CommandText = "SELECT 1 FROM Users WHERE lower(Username)=lower($u) LIMIT 1;";
+                check.Parameters.AddWithValue("$u", u);
+                var exists = check.ExecuteScalar();
+                if (exists != null && exists != DBNull.Value)
+                    return false;
             }
-            return false;
+
+            using (var ins = con.CreateCommand())
+            {
+                ins.CommandText = @"
+INSERT INTO Users (Username, PasswordHash, AccountType, CompanyName, NIP, REGON, KRS, CompanyAddress)
+VALUES ($u, $ph, $type, $cname, $nip, $regon, $krs, $caddr);";
+                ins.Parameters.AddWithValue("$u", u);
+                ins.Parameters.AddWithValue("$ph", HashPassword(password));
+                ins.Parameters.AddWithValue("$type", accountType == AccountType.Business ? "Business" : "Personal");
+                ins.Parameters.AddWithValue("$cname", (object?)companyName ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$nip", (object?)nip ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$regon", (object?)regon ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$krs", (object?)krs ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$caddr", (object?)companyAddress ?? DBNull.Value);
+                return ins.ExecuteNonQuery() == 1;
+            }
         }
 
         public static bool IsUsernameAvailable(string username)
@@ -66,12 +101,9 @@ namespace Finly.Services
             var u = Normalize(username);
             if (u is null) return false;
 
-            using var con = new SqliteConnection(ConnectionString);
-            con.Open();
-            EnsureUsersSchema(con);
-
+            using var con = DatabaseService.GetConnection();
             using var cmd = con.CreateCommand();
-            cmd.CommandText = "SELECT 1 FROM Users WHERE lower(Username) = lower($u) LIMIT 1;";
+            cmd.CommandText = "SELECT 1 FROM Users WHERE lower(Username)=lower($u) LIMIT 1;";
             cmd.Parameters.AddWithValue("$u", u);
             var exists = cmd.ExecuteScalar();
             return exists is null || exists == DBNull.Value;
@@ -82,15 +114,10 @@ namespace Finly.Services
             var u = Normalize(username);
             if (u is null || string.IsNullOrWhiteSpace(password)) return false;
 
-            using var con = new SqliteConnection(ConnectionString);
-            con.Open();
-            EnsureUsersSchema(con);
-
+            using var con = DatabaseService.GetConnection();
             using var cmd = con.CreateCommand();
-            cmd.CommandText = @"SELECT Id, PasswordHash
-                                FROM Users
-                                WHERE lower(Username) = lower($u)
-                                LIMIT 1;";
+            cmd.CommandText = @"SELECT Id, PasswordHash FROM Users
+                                WHERE lower(Username)=lower($u) LIMIT 1;";
             cmd.Parameters.AddWithValue("$u", u);
 
             using var r = cmd.ExecuteReader();
@@ -98,107 +125,288 @@ namespace Finly.Services
 
             var id = r.GetInt32(0);
             var ph = r.GetString(1);
-
             if (!VerifyPassword(password, ph)) return false;
 
             CurrentUserId = id;
             CurrentUserName = u;
-            // CurrentUserEmail ó jeúli dodasz kolumnÍ Email, ustawisz tutaj
+            CurrentUserEmail = GetEmail(id);
             return true;
         }
 
         public static int GetUserIdByUsername(string username)
         {
-            using var conn = DatabaseService.GetOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id FROM Users WHERE Username = @u LIMIT 1;";
-            cmd.Parameters.AddWithValue("@u", username);
-
-            var result = cmd.ExecuteScalar();
-            if (result != null && int.TryParse(result.ToString(), out int id))
-                return id;
-
-            return 0;
+            var u = Normalize(username) ?? string.Empty;
+            using var con = DatabaseService.GetConnection();
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = "SELECT Id FROM Users WHERE lower(Username)=lower($u) LIMIT 1;";
+            cmd.Parameters.AddWithValue("$u", u);
+            var obj = cmd.ExecuteScalar();
+            return (obj is null || obj == DBNull.Value) ? 0 : Convert.ToInt32(obj);
         }
 
-        /// <summary>Usuwa uøytkownika i powiπzane dane (Expenses, kategorie uøytkownika).</summary>
+        // ===== Zmiana has≈Ça =====
+        public static bool ChangePassword(int userId, string oldPassword, string newPassword)
+        {
+            using var c = DatabaseService.GetConnection();
+
+            string currentHash = "";
+            using (var get = c.CreateCommand())
+            {
+                get.CommandText = "SELECT PasswordHash FROM Users WHERE Id=@id;";
+                get.Parameters.AddWithValue("@id", userId);
+                currentHash = get.ExecuteScalar()?.ToString() ?? "";
+            }
+
+            if (!string.Equals(currentHash, HashPassword(oldPassword), StringComparison.Ordinal))
+                return false;
+
+            using (var upd = c.CreateCommand())
+            {
+                upd.CommandText = "UPDATE Users SET PasswordHash=@h WHERE Id=@id;";
+                upd.Parameters.AddWithValue("@h", HashPassword(newPassword));
+                upd.Parameters.AddWithValue("@id", userId);
+                upd.ExecuteNonQuery();
+            }
+            return true;
+        }
+
+        // ===== Dane konta =====
+        public static string GetUsername(int userId) => GetUserById(userId)?.Username ?? "";
+        public static string GetEmail(int userId) => GetUserById(userId)?.Email ?? "";
+        public static void UpdateEmail(int userId, string email)
+        {
+            using var c = DatabaseService.GetConnection();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE Users SET Email=@e WHERE Id=@id;";
+            cmd.Parameters.AddWithValue("@e", email ?? "");
+            cmd.Parameters.AddWithValue("@id", userId);
+            cmd.ExecuteNonQuery();
+        }
+
+        public static DateTime GetCreatedAt(int userId)
+            => GetUserById(userId)?.CreatedAt ?? DateTime.MinValue;
+
+        public static (int Id, string Username, string? Email, DateTime CreatedAt)? GetUserById(int userId)
+        {
+            using var c = DatabaseService.GetConnection();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT Id, Username, Email, CreatedAt FROM Users WHERE Id=@id;";
+            cmd.Parameters.AddWithValue("@id", userId);
+
+            using var r = cmd.ExecuteReader();
+            if (!r.Read()) return null;
+
+            DateTime createdAt;
+            var raw = r.GetValue(3);
+            if (raw is DateTime dt) createdAt = dt;
+            else if (DateTime.TryParse(raw?.ToString(), out var parsed)) createdAt = parsed;
+            else createdAt = DateTime.MinValue;
+
+            return (r.GetInt32(0),
+                    r.GetString(1),
+                    r.IsDBNull(2) ? null : r.GetString(2),
+                    createdAt);
+        }
+
+        // ===== Usuwanie konta =====
         public static bool DeleteAccount(int userId)
         {
-            using var con = new SqliteConnection(ConnectionString);
-            con.Open();
-            EnsureUsersSchema(con);
-
-            using var tx = con.BeginTransaction();
             try
             {
-                // 1) Expenses
-                using (var cmd = con.CreateCommand())
+                using var con = DatabaseService.GetConnection();
+                using var tx = con.BeginTransaction();
+
+                void Exec(string sql)
                 {
-                    cmd.CommandText = "DELETE FROM Expenses WHERE UserId = $id;";
-                    cmd.Parameters.AddWithValue("$id", userId);
+                    using var cmd = con.CreateCommand();
+                    cmd.Transaction = tx;
+                    cmd.CommandText = sql;
+                    cmd.Parameters.AddWithValue("@id", userId);
                     cmd.ExecuteNonQuery();
                 }
 
-                // 2) Kategorie uøytkownika (globalnych z NULL nie ruszamy)
-                using (var cmd = con.CreateCommand())
-                {
-                    cmd.CommandText = "DELETE FROM Categories WHERE UserId = $id;";
-                    cmd.Parameters.AddWithValue("$id", userId);
-                    cmd.ExecuteNonQuery();
-                }
+                Exec("DELETE FROM Expenses        WHERE UserId=@id;");
+                Exec("DELETE FROM Categories      WHERE UserId=@id;");
+                Exec("DELETE FROM BankAccounts    WHERE UserId=@id;");
+                Exec("DELETE FROM BankConnections WHERE UserId=@id;");
+                Exec("DELETE FROM PersonalProfiles WHERE UserId=@id;");
+                Exec("DELETE FROM CompanyProfiles  WHERE UserId=@id;");
 
-                // 3) Sam uøytkownik
-                using (var cmd = con.CreateCommand())
+                using (var del = con.CreateCommand())
                 {
-                    cmd.CommandText = "DELETE FROM Users WHERE Id = $id;";
-                    cmd.Parameters.AddWithValue("$id", userId);
-                    if (cmd.ExecuteNonQuery() != 1)
-                        throw new InvalidOperationException("Nie znaleziono uøytkownika.");
+                    del.Transaction = tx;
+                    del.CommandText = "DELETE FROM Users WHERE Id=@id;";
+                    del.Parameters.AddWithValue("@id", userId);
+                    if (del.ExecuteNonQuery() != 1)
+                        throw new InvalidOperationException("Nie znaleziono u≈ºytkownika.");
                 }
 
                 tx.Commit();
 
-                if (CurrentUserId == userId)
-                    ClearCurrentUser();
-
+                if (CurrentUserId == userId) ClearCurrentUser();
                 return true;
             }
             catch
             {
-                try { tx.Rollback(); } catch { /* ignore */ }
                 return false;
             }
         }
 
-        // ===== Prywatne pomocnicze =====
+        // ===== Profil u≈ºytkownika =====
+        public static UserProfile GetProfile(int userId)
+        {
+            using var c = DatabaseService.GetConnection();
 
+            string? firstName = null, lastName = null, address = null;
+            string? birthYear = null, city = null, postalCode = null, houseNo = null;
+
+            try
+            {
+                using var p = c.CreateCommand();
+                p.CommandText = @"
+SELECT FirstName, LastName, Address, BirthDate, City, PostalCode, HouseNo
+FROM PersonalProfiles WHERE UserId=@id LIMIT 1;";
+                p.Parameters.AddWithValue("@id", userId);
+
+                using var pr = p.ExecuteReader();
+                if (pr.Read())
+                {
+                    firstName = pr.IsDBNull(0) ? null : pr.GetString(0);
+                    lastName = pr.IsDBNull(1) ? null : pr.GetString(1);
+                    address = pr.IsDBNull(2) ? null : pr.GetString(2);
+                    if (!pr.IsDBNull(3))
+                    {
+                        var d = pr.GetString(3);
+                        if (DateTime.TryParse(d, out var bd)) birthYear = bd.Year.ToString();
+                    }
+                    city = pr.IsDBNull(4) ? null : pr.GetString(4);
+                    postalCode = pr.IsDBNull(5) ? null : pr.GetString(5);
+                    houseNo = pr.IsDBNull(6) ? null : pr.GetString(6);
+                }
+            }
+            catch { }
+
+            string? companyName = null, companyNip = null, companyAddress = null;
+            using (var u = c.CreateCommand())
+            {
+                u.CommandText = @"
+SELECT FirstName, LastName, Address,
+       CompanyName,
+       COALESCE(NIP, CompanyNip) as NipCompat,
+       CompanyAddress
+FROM Users WHERE Id=@id;";
+                u.Parameters.AddWithValue("@id", userId);
+                using var ur = u.ExecuteReader();
+                if (ur.Read())
+                {
+                    firstName ??= ur.IsDBNull(0) ? null : ur.GetString(0);
+                    lastName ??= ur.IsDBNull(1) ? null : ur.GetString(1);
+                    address ??= ur.IsDBNull(2) ? null : ur.GetString(2);
+
+                    companyName = ur.IsDBNull(3) ? null : ur.GetString(3);
+                    companyNip = ur.IsDBNull(4) ? null : ur.GetString(4);
+                    companyAddress = ur.IsDBNull(5) ? null : ur.GetString(5);
+                }
+            }
+
+            return new UserProfile
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                Address = address,
+                BirthYear = birthYear,
+                City = city,
+                PostalCode = postalCode,
+                HouseNo = houseNo,
+                CompanyName = companyName,
+                CompanyNip = companyNip,
+                CompanyAddress = companyAddress
+            };
+        }
+
+        public static void UpdateProfile(int userId, UserProfile p)
+        {
+            using var c = DatabaseService.GetConnection();
+
+            try
+            {
+                using (var up = c.CreateCommand())
+                {
+                    up.CommandText = @"
+INSERT INTO PersonalProfiles (UserId, FirstName, LastName, Address, City, PostalCode, HouseNo, CreatedAt)
+VALUES (@id, @fn, @ln, @addr, @city, @pc, @house, CURRENT_TIMESTAMP)
+ON CONFLICT(UserId) DO UPDATE SET
+    FirstName = @fn,
+    LastName  = @ln,
+    Address   = @addr,
+    City      = @city,
+    PostalCode= @pc,
+    HouseNo   = @house;";
+                    up.Parameters.AddWithValue("@id", userId);
+                    up.Parameters.AddWithValue("@fn", (object?)p.FirstName ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@ln", (object?)p.LastName ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@addr", (object?)p.Address ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@city", (object?)p.City ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@pc", (object?)p.PostalCode ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@house", (object?)p.HouseNo ?? DBNull.Value);
+                    up.ExecuteNonQuery();
+                }
+
+                if (int.TryParse(p.BirthYear, out var y) && y >= 1900 && y <= DateTime.Now.Year)
+                {
+                    using var upBirth = c.CreateCommand();
+                    upBirth.CommandText = @"
+UPDATE PersonalProfiles
+SET BirthDate = date(@iso,'start of year')
+WHERE UserId=@id;";
+                    upBirth.Parameters.AddWithValue("@iso", $"{y}-01-01");
+                    upBirth.Parameters.AddWithValue("@id", userId);
+                    upBirth.ExecuteNonQuery();
+                }
+            }
+            catch
+            {
+                using var upu = c.CreateCommand();
+                upu.CommandText = @"
+UPDATE Users SET
+    FirstName = @fn,
+    LastName  = @ln,
+    Address   = @addr
+WHERE Id=@id;";
+                upu.Parameters.AddWithValue("@fn", (object?)p.FirstName ?? DBNull.Value);
+                upu.Parameters.AddWithValue("@ln", (object?)p.LastName ?? DBNull.Value);
+                upu.Parameters.AddWithValue("@addr", (object?)p.Address ?? DBNull.Value);
+                upu.Parameters.AddWithValue("@id", userId);
+                upu.ExecuteNonQuery();
+            }
+
+            using (var cmd = c.CreateCommand())
+            {
+                cmd.CommandText = @"
+UPDATE Users SET
+    CompanyName    = @cname,
+    NIP            = @nip,
+    CompanyAddress = @caddr
+WHERE Id=@id;";
+                cmd.Parameters.AddWithValue("@cname", (object?)p.CompanyName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@nip", (object?)p.CompanyNip ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@caddr", (object?)p.CompanyAddress ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@id", userId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        // ===== Pomocnicze =====
         private static string? Normalize(string username)
             => string.IsNullOrWhiteSpace(username) ? null : username.Trim();
 
         private static string HashPassword(string password)
         {
-            // Na projekt OK (SHA256). Produkcyjnie: PBKDF2/Argon2 + sÛl.
-            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password ?? ""));
             return Convert.ToBase64String(bytes);
         }
 
         private static bool VerifyPassword(string password, string storedBase64Sha256)
             => string.Equals(HashPassword(password), storedBase64Sha256, StringComparison.Ordinal);
-
-        /// <summary>Zapewnia tabelÍ Users + unikalnoúÊ loginu case-insensitive.</summary>
-        private static void EnsureUsersSchema(SqliteConnection con)
-        {
-            using var cmd = con.CreateCommand();
-            cmd.CommandText = @"
-CREATE TABLE IF NOT EXISTS Users(
-    Id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    Username     TEXT NOT NULL UNIQUE,
-    PasswordHash TEXT NOT NULL,
-    CreatedAt    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
-    ON Users(Username COLLATE NOCASE);";
-            cmd.ExecuteNonQuery();
-        }
     }
 }

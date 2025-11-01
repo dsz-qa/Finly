@@ -1,40 +1,65 @@
-﻿using System;
+using System;
 using Microsoft.Data.Sqlite;
 
 namespace Finly.Services
 {
     public static class SchemaService
     {
+        private static readonly object _schemaLock = new();
+
         public static void Ensure(SqliteConnection con)
         {
             if (con is null) throw new ArgumentNullException(nameof(con));
 
-            using var tx = con.BeginTransaction();
-
-            // PRAGMA
-            using (var fk = con.CreateCommand())
+            lock (_schemaLock)
             {
-                fk.CommandText = "PRAGMA foreign_keys = ON;";
-                fk.ExecuteNonQuery();
-            }
+                using (var p = con.CreateCommand())
+                {
+                    p.CommandText = @"PRAGMA busy_timeout = 5000;
+                                      PRAGMA journal_mode = WAL;";
+                    p.ExecuteNonQuery();
+                }
 
-            using (var cmd = con.CreateCommand())
-            {
-                cmd.CommandText = @"
+                using var tx = con.BeginTransaction();
+
+                SqliteCommand Cmd(string sql)
+                {
+                    var c = con.CreateCommand();
+                    c.Transaction = tx;
+                    c.CommandText = sql;
+                    return c;
+                }
+
+                bool ColTx(string table, string col) => ColumnExists(con, tx, table, col);
+
+                using (var cmd = Cmd(@"
 CREATE TABLE IF NOT EXISTS Users(
-    Id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    Username     TEXT NOT NULL UNIQUE,
-    PasswordHash TEXT NOT NULL,
-    CreatedAt    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    Id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    Username        TEXT NOT NULL UNIQUE,
+    PasswordHash    TEXT NOT NULL,
+    Email           TEXT NULL,
+    FirstName       TEXT NULL,
+    LastName        TEXT NULL,
+    Address         TEXT NULL,
+    CompanyName     TEXT NULL,
+    CompanyNip      TEXT NULL,
+    CompanyAddress  TEXT NULL,
+    AccountType     TEXT NULL,
+    NIP             TEXT NULL,
+    REGON           TEXT NULL,
+    KRS             TEXT NULL,
+    CreatedAt       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS Expenses(
+CREATE TABLE IF NOT EXISTS Categories(
     Id INTEGER PRIMARY KEY AUTOINCREMENT,
-    UserId INTEGER NOT NULL,
-    CategoryId INTEGER NOT NULL,
-    Amount REAL NOT NULL,
-    Date TEXT NOT NULL,
-    Description TEXT
+    UserId INTEGER NULL,
+    Name TEXT NOT NULL,
+    Icon TEXT NULL,
+    Color TEXT NULL,
+    Type TEXT CHECK(Type IN ('Expense','Income','Saving')),
+    IsDeleted INTEGER NOT NULL DEFAULT 0,
+    CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS Expenses(
@@ -44,45 +69,112 @@ CREATE TABLE IF NOT EXISTS Expenses(
     Date        TEXT    NOT NULL,
     Description TEXT    NULL,
     UserId      INTEGER NOT NULL
-);";
-                cmd.ExecuteNonQuery();
-            }
+);
 
-            // Kolumna UserId (dla starszych baz)
-            if (!ColumnExists(con, "Categories", "UserId"))
-            {
-                using var alter = con.CreateCommand();
-                alter.CommandText = @"ALTER TABLE Categories ADD COLUMN UserId INTEGER NULL;";
-                alter.ExecuteNonQuery();
-            }
+CREATE TABLE IF NOT EXISTS BankConnections(
+    Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId        INTEGER NOT NULL,
+    BankName      TEXT NOT NULL,
+    AccountHolder TEXT NOT NULL,
+    Status        TEXT NOT NULL,
+    LastSync      TEXT
+);
 
-            using (var idx = con.CreateCommand())
-            {
-                idx.CommandText = @"
+CREATE TABLE IF NOT EXISTS BankAccounts(
+    Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    ConnectionId INTEGER NOT NULL,
+    UserId       INTEGER NOT NULL,
+    AccountName  TEXT NOT NULL,
+    Iban         TEXT NOT NULL,
+    Currency     TEXT NOT NULL,
+    Balance      NUMERIC NOT NULL DEFAULT 0,
+    LastSync     TEXT,
+    FOREIGN KEY(ConnectionId) REFERENCES BankConnections(Id)
+);
+"))
+                {
+                    cmd.ExecuteNonQuery();
+                }
+
+                // ---- migracje idempotentne ----
+                void AddColumnIfMissing(string table, string column, string sqlType, string defaultClause = "")
+                {
+                    if (!ColumnExists(con, table, column))
+                    {
+                        using var alter = con.CreateCommand();
+                        alter.Transaction = tx;
+                        alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {sqlType} {defaultClause};";
+                        alter.ExecuteNonQuery();
+                    }
+                }
+
+                AddColumnIfMissing("Users", "AccountType", "TEXT", "DEFAULT 'Personal'");
+                AddColumnIfMissing("Users", "CompanyName", "TEXT");
+                AddColumnIfMissing("Users", "NIP", "TEXT");
+                AddColumnIfMissing("Users", "REGON", "TEXT");
+                AddColumnIfMissing("Users", "KRS", "TEXT");
+                AddColumnIfMissing("Users", "CompanyAddress", "TEXT");
+
+                // zgodność wstecz: CompanyNip -> NIP
+                bool hasCompanyNip = ColTx("Users", "CompanyNip");
+                bool hasNip = ColTx("Users", "NIP");
+                if (hasCompanyNip && !hasNip)
+                {
+                    Cmd("ALTER TABLE Users ADD COLUMN NIP TEXT;").ExecuteNonQuery();
+                    Cmd("UPDATE Users SET NIP = CompanyNip WHERE NIP IS NULL AND CompanyNip IS NOT NULL;").ExecuteNonQuery();
+                }
+
+                if (!ColTx("Users", "Email")) Cmd("ALTER TABLE Users ADD COLUMN Email TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "FirstName")) Cmd("ALTER TABLE Users ADD COLUMN FirstName TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "LastName")) Cmd("ALTER TABLE Users ADD COLUMN LastName TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "Address")) Cmd("ALTER TABLE Users ADD COLUMN Address TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "CreatedAt")) Cmd("ALTER TABLE Users ADD COLUMN CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP;").ExecuteNonQuery();
+
+                if (!ColTx("Categories", "UserId"))
+                    Cmd("ALTER TABLE Categories ADD COLUMN UserId INTEGER NULL;").ExecuteNonQuery();
+
+                using (var idx = Cmd(@"
 CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
     ON Users(Username COLLATE NOCASE);
 
 CREATE UNIQUE INDEX IF NOT EXISTS IX_Categories_User_Name
-    ON Categories(COALESCE(UserId,0), Name);";
-                idx.ExecuteNonQuery();
+    ON Categories(COALESCE(UserId,0), Name);
+"))
+                {
+                    idx.ExecuteNonQuery();
+                }
+
+                // 🟢 Nie dodajemy domyślnych kategorii — każdy użytkownik tworzy je sam
+                tx.Commit();
             }
-
-            // 🟢 Nie dodajemy już domyślnych kategorii
-            // (każdy użytkownik tworzy je sam po dodaniu pierwszego wydatku)
-
-            tx.Commit();
         }
 
-        private static bool ColumnExists(SqliteConnection con, string table, string column)
+        // --- PRAGMA z transakcją ---
+        private static bool ColumnExists(SqliteConnection con, SqliteTransaction tx, string table, string column)
         {
-            var safeTable = table.Replace("'", "''");
             using var cmd = con.CreateCommand();
-            cmd.CommandText = $"PRAGMA table_info('{safeTable}');";
+            cmd.Transaction = tx;
+            cmd.CommandText = $"PRAGMA table_info('{table.Replace("'", "''")}');";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
-                var colName = r["name"]?.ToString();
-                if (string.Equals(colName, column, StringComparison.OrdinalIgnoreCase))
+                var name = r["name"]?.ToString();
+                if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        // --- przeciążenie bez transakcji ---
+        private static bool ColumnExists(SqliteConnection con, string table, string column)
+        {
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info('{table.Replace("'", "''")}');";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var name = r["name"]?.ToString();
+                if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
                     return true;
             }
             return false;

@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media;
 using Finly.Helpers;
-using Finly.Models;
+using Finly.Models;          // <-- ważne: dla enum AccountType
 using Finly.Services;
 
 namespace Finly.ViewModels
@@ -14,45 +14,53 @@ namespace Finly.ViewModels
     {
         private readonly int _userId;
 
+        // Podstawowe informacje (readonly w UI)
         public string Username { get; }
         public string Email { get; }
         public DateTime CreatedAt { get; }
 
+        // Typ konta
+        public AccountType AccountType { get; }
+        public bool IsBusiness => AccountType == AccountType.Business;
+        public bool IsPersonal => AccountType == AccountType.Personal;
+
+        // „Bezpieczniki” na puste sekcje
+        public bool ShowPersonalSection =>
+            IsPersonal && (!string.IsNullOrWhiteSpace(FirstName)
+                        || !string.IsNullOrWhiteSpace(LastName)
+                        || !string.IsNullOrWhiteSpace(Address));
+
+        public bool ShowCompanySection =>
+            IsBusiness && (!string.IsNullOrWhiteSpace(CompanyName)
+                        || !string.IsNullOrWhiteSpace(CompanyNip)
+                        || !string.IsNullOrWhiteSpace(CompanyAddress));
+
+        // Banki/rachunki
         public ObservableCollection<BankConnectionModel> BankConnections { get; } = new();
         public ObservableCollection<BankAccountModel> BankAccounts { get; } = new();
 
         public ICommand ConnectBankCommand { get; }
         public ICommand DisconnectBankCommand { get; }
         public ICommand SyncNowCommand { get; }
-        public string? FirstName { get => _firstName; set { _firstName = value; OnPropertyChanged(); } }
-        public string? LastName { get => _lastName; set { _lastName = value; OnPropertyChanged(); } }
-        public string? Address { get => _address; set { _address = value; OnPropertyChanged(); } }
 
-        public string? CompanyName { get => _companyName; set { _companyName = value; OnPropertyChanged(); } }
-        public string? CompanyNip { get => _companyNip; set { _companyNip = value; OnPropertyChanged(); } }
-        public string? CompanyAddress { get => _companyAddress; set { _companyAddress = value; OnPropertyChanged(); } }
+        // Dane osobowe (readonly w UI)
+        public string? FirstName { get => _firstName; private set { _firstName = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowPersonalSection)); } }
+        public string? LastName { get => _lastName; private set { _lastName = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowPersonalSection)); } }
+        public string? Address { get => _address; private set { _address = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowPersonalSection)); } }
+
+        // Dane firmy (readonly w UI)
+        public string? CompanyName { get => _companyName; private set { _companyName = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowCompanySection)); } }
+        public string? CompanyNip { get => _companyNip; private set { _companyNip = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowCompanySection)); } }
+        public string? CompanyAddress { get => _companyAddress; private set { _companyAddress = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowCompanySection)); } }
 
         private string? _firstName, _lastName, _address;
         private string? _companyName, _companyNip, _companyAddress;
 
-        public ICommand SaveProfileCommand { get; }
-
-
+        // Zmiana hasła
         private string? _pwMsg;
         private Brush? _pwBrush;
-
-        public string? PasswordChangeMessage
-        {
-            get => _pwMsg;
-            set { _pwMsg = value; OnPropertyChanged(); }
-        }
-
-        public Brush? PasswordChangeBrush
-        {
-            get => _pwBrush;
-            set { _pwBrush = value; OnPropertyChanged(); }
-        }
-
+        public string? PasswordChangeMessage { get => _pwMsg; set { _pwMsg = value; OnPropertyChanged(); } }
+        public Brush? PasswordChangeBrush { get => _pwBrush; set { _pwBrush = value; OnPropertyChanged(); } }
 
         public AccountViewModel(int userId)
         {
@@ -61,33 +69,31 @@ namespace Finly.ViewModels
             Email = UserService.GetEmail(userId);
             CreatedAt = UserService.GetCreatedAt(userId);
 
-            // wczytaj profil
+            // <- NOWE: typ konta z serwisu (jeśli nie masz takiej metody, zwróć Personal/Business jak już masz w UserService)
+            AccountType = UserService.GetAccountType(userId);
+
+            // Profil wprowadzony przy rejestracji/edycji
             var p = UserService.GetProfile(userId);
-            FirstName = p.FirstName; LastName = p.LastName; Address = p.Address;
-            CompanyName = p.CompanyName; CompanyNip = p.CompanyNip; CompanyAddress = p.CompanyAddress;
+            FirstName = p.FirstName;
+            LastName = p.LastName;
+            Address = p.Address;
+
+            CompanyName = p.CompanyName;
+            CompanyNip = p.CompanyNip;
+            CompanyAddress = p.CompanyAddress;
 
             ConnectBankCommand = new RelayCommand(_ => ConnectBank());
-            DisconnectBankCommand = new RelayCommand(c => { if (c is BankConnectionModel m) { OpenBankingService.Disconnect(m.Id); Load(); } });
+            DisconnectBankCommand = new RelayCommand(c =>
+            {
+                if (c is BankConnectionModel m)
+                {
+                    OpenBankingService.Disconnect(m.Id);
+                    Load();
+                }
+            });
             SyncNowCommand = new RelayCommand(_ => { OpenBankingService.SyncNow(_userId); Load(); });
 
-            SaveProfileCommand = new RelayCommand(_ => SaveProfile());
-
             Load();
-        }
-
-        private void SaveProfile()
-        {
-            var p = new UserProfile
-            {
-                FirstName = FirstName,
-                LastName = LastName,
-                Address = Address,
-                CompanyName = CompanyName,
-                CompanyNip = CompanyNip,
-                CompanyAddress = CompanyAddress
-            };
-            UserService.UpdateProfile(_userId, p);
-            ToastService.Success("Zapisano dane profilu.");
         }
 
         private void Load()
@@ -126,3 +132,5 @@ namespace Finly.ViewModels
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
+
+

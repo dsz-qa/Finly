@@ -3,16 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:helpers="clr-namespace:Finly.Helpers"
              mc:Ignorable="d">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24" helpers:StackPanelSpacing.Spacing="16">
+        <StackPanel Margin="24">
 
-            <TextBlock Text="Konto" FontSize="24" FontWeight="Bold"/>
+            <TextBlock Text="Konto" FontSize="24" FontWeight="Bold" />
 
             <!-- PROFIL -->
-            <Border Background="{DynamicResource Surface.Background}"
+            <Border Margin="0,12,0,0"
+                    Background="{DynamicResource Surface.Background}"
                     BorderBrush="{DynamicResource Surface.Border}"
                     BorderThickness="1" CornerRadius="10">
                 <Grid Margin="16">
@@ -29,69 +29,77 @@
                     <TextBlock Grid.Row="0" Grid.ColumnSpan="2"
                                Text="Profil" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
 
-                    <!-- Dane osobowe -->
-                    <StackPanel Grid.Row="1" Grid.Column="0" helpers:StackPanelSpacing.Spacing="8">
-                        <TextBlock Text="Dane osobowe" FontWeight="SemiBold"/>
-                        <StackPanel Orientation="Horizontal" helpers:StackPanelSpacing.Spacing="8">
-                            <TextBlock Text="Użytkownik:" Width="120"/>
-                            <TextBlock Text="{Binding Username}" FontWeight="SemiBold"/>
+                    <!-- kolumna 1: informacje ogólne + dane osobowe -->
+                    <StackPanel Grid.Row="1" Grid.Column="0">
+                        <TextBlock Text="Dane użytkownika" FontWeight="SemiBold" />
+                        <StackPanel Margin="0,6,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="Użytkownik:" Width="140"/>
+                                <TextBlock Text="{Binding Username}" FontWeight="SemiBold"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="E-mail:" Width="140"/>
+                                <TextBlock Text="{Binding Email}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,8">
+                                <TextBlock Text="Utworzono:" Width="140"/>
+                                <TextBlock Text="{Binding CreatedAt, StringFormat={}{0:yyyy-MM-dd}}"/>
+                            </StackPanel>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" helpers:StackPanelSpacing.Spacing="8">
-                            <TextBlock Text="E-mail:" Width="120"/>
-                            <TextBlock Text="{Binding Email}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" helpers:StackPanelSpacing.Spacing="8">
-                            <TextBlock Text="Utworzono:" Width="120"/>
-                            <TextBlock Text="{Binding CreatedAt, StringFormat={}{0:yyyy-MM-dd}}"/>
+                        <!-- POD DANYMI: Użytkownik / E-mail / Utworzono -->
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+            Visibility="{Binding IsPersonal, Converter={StaticResource BoolToVisibility}}">
+                            <Button Content="Uzupełnij więcej danych osobowych"
+            Style="{StaticResource PrimaryButton}"
+            Click="EditPersonal_Click"/>
                         </StackPanel>
 
-                        <DockPanel>
-                            <StackPanel Width="260" helpers:StackPanelSpacing.Spacing="4">
-                                <TextBlock Text="Imię"/>
-                                <TextBox Text="{Binding FirstName, UpdateSourceTrigger=PropertyChanged}"/>
-                            </StackPanel>
-                            <StackPanel Width="260" Margin="12,0,0,0" helpers:StackPanelSpacing.Spacing="4">
-                                <TextBlock Text="Nazwisko"/>
-                                <TextBox Text="{Binding LastName, UpdateSourceTrigger=PropertyChanged}"/>
-                            </StackPanel>
-                        </DockPanel>
+                        <!-- Dane osobowe – tylko dla konta osobistego -->
+                        <StackPanel Margin="0,8,0,0"
+            Visibility="{Binding ShowPersonalSection, Converter={StaticResource BoolToVisibility}}">
+                            <!-- reszta bez zmian -->
 
-                        <StackPanel helpers:StackPanelSpacing.Spacing="4">
-                            <TextBlock Text="Adres (ulica, kod, miasto)"/>
-                            <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Text="Dane osobowe" FontWeight="SemiBold" />
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="Imię:" Width="140"/>
+                                <TextBlock Text="{Binding FirstName}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="Nazwisko:" Width="140"/>
+                                <TextBlock Text="{Binding LastName}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <TextBlock Text="Adres (ulica, kod, miasto):" Width="140"/>
+                                <TextBlock Text="{Binding Address}" TextWrapping="Wrap" />
+                            </StackPanel>
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Dane firmy -->
-                    <StackPanel Grid.Row="1" Grid.Column="1" helpers:StackPanelSpacing.Spacing="8">
-                        <TextBlock Text="Dane firmy (opcjonalnie)" FontWeight="SemiBold"/>
-                        <StackPanel helpers:StackPanelSpacing.Spacing="4">
-                            <TextBlock Text="Nazwa firmy"/>
-                            <TextBox Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"/>
+                    <!-- kolumna 2: dane firmy – tylko dla konta firmowego -->
+                    <StackPanel Grid.Row="1" Grid.Column="1"
+            Visibility="{Binding ShowCompanySection, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Dane firmy" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBlock Text="Nazwa firmy:" Width="140"/>
+                            <TextBlock Text="{Binding CompanyName}" />
                         </StackPanel>
 
-                        <DockPanel>
-                            <StackPanel Width="200" helpers:StackPanelSpacing.Spacing="4">
-                                <TextBlock Text="NIP"/>
-                                <TextBox Text="{Binding CompanyNip, UpdateSourceTrigger=PropertyChanged}"/>
-                            </StackPanel>
-                            <StackPanel Margin="12,0,0,0" helpers:StackPanelSpacing.Spacing="4">
-                                <TextBlock Text="Adres firmy"/>
-                                <TextBox Width="300" Text="{Binding CompanyAddress, UpdateSourceTrigger=PropertyChanged}"/>
-                            </StackPanel>
-                        </DockPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="NIP:" Width="140"/>
+                            <TextBlock Text="{Binding CompanyNip}" />
+                        </StackPanel>
 
-                        <Button Content="Zapisz dane" Width="140"
-                                Command="{Binding SaveProfileCommand}"
-                                Style="{StaticResource PrimaryButton}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="Adres firmy:" Width="140"/>
+                            <TextBlock Text="{Binding CompanyAddress}" TextWrapping="Wrap"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Zmiana hasła -->
-                    <StackPanel Grid.Row="2" Grid.ColumnSpan="2"
-                                Margin="0,16,0,0" helpers:StackPanelSpacing.Spacing="8">
+                    <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,16,0,0">
                         <TextBlock Text="Zmiana hasła" FontSize="16" FontWeight="SemiBold"/>
 
-                        <Grid>
+                        <Grid Margin="0,8,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
@@ -106,7 +114,7 @@
                             <PasswordBox x:Name="PwdNew" Grid.Column="3" />
                         </Grid>
 
-                        <Grid>
+                        <Grid Margin="0,6,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
@@ -115,11 +123,12 @@
                             <PasswordBox x:Name="PwdNew2" Grid.Column="1" />
                         </Grid>
 
-                        <StackPanel Orientation="Horizontal" helpers:StackPanelSpacing.Spacing="12">
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <Button Content="Zmień hasło"
                                     Style="{StaticResource PrimaryButton}"
                                     Click="ChangePassword_Click"/>
-                            <TextBlock Text="{Binding PasswordChangeMessage}"
+                            <TextBlock Margin="12,0,0,0"
+                                       Text="{Binding PasswordChangeMessage}"
                                        Foreground="{Binding PasswordChangeBrush}"/>
                         </StackPanel>
                     </StackPanel>
@@ -127,18 +136,19 @@
             </Border>
 
             <!-- BANKI + RACHUNKI -->
-            <Border Background="{DynamicResource Surface.Background}"
+            <Border Margin="0,12,0,0"
+                    Background="{DynamicResource Surface.Background}"
                     BorderBrush="{DynamicResource Surface.Border}"
                     BorderThickness="1" CornerRadius="10">
-                <StackPanel Margin="16" helpers:StackPanelSpacing.Spacing="12">
-                    <StackPanel Orientation="Horizontal" helpers:StackPanelSpacing.Spacing="12">
+                <StackPanel Margin="16">
+                    <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Połączone banki" FontSize="18" FontWeight="SemiBold"/>
-                        <Button Content="Dodaj bank" Style="{StaticResource PrimaryButton}"
+                        <Button Margin="12,0,0,0" Content="Dodaj bank" Style="{StaticResource PrimaryButton}"
                                 Command="{Binding ConnectBankCommand}"/>
-                        <Button Content="Synchronizuj teraz" Command="{Binding SyncNowCommand}"/>
+                        <Button Margin="8,0,0,0" Content="Synchronizuj teraz" Command="{Binding SyncNowCommand}"/>
                     </StackPanel>
 
-                    <ItemsControl ItemsSource="{Binding BankConnections}">
+                    <ItemsControl ItemsSource="{Binding BankConnections}" Margin="0,8,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Margin="0,6,0,0"
@@ -165,16 +175,16 @@
 
                                         <TextBlock Grid.Column="2" Text="{Binding Status}" VerticalAlignment="Center"/>
                                         <Button Grid.Column="3" Content="Odłącz"
-            Command="{Binding DataContext.DisconnectBankCommand,
-                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-            CommandParameter="{Binding}"/>
+                                                Command="{Binding DataContext.DisconnectBankCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <Expander Header="Rachunki (saldo)" IsExpanded="False">
+                    <Expander Header="Rachunki (saldo)" IsExpanded="False" Margin="0,8,0,0">
                         <DataGrid ItemsSource="{Binding BankAccounts}"
                                   AutoGenerateColumns="False" HeadersVisibility="Column"
                                   CanUserAddRows="False" IsReadOnly="True" Margin="0,8,0,0">
@@ -194,6 +204,8 @@
         </StackPanel>
     </ScrollViewer>
 </UserControl>
+
+
 
 
 

@@ -30,6 +30,20 @@ namespace Finly.Services
             CurrentUserEmail = null;
         }
 
+        // ===== Typ konta =====
+        public static AccountType GetAccountType(int userId)
+        {
+            using var con = DatabaseService.GetConnection();
+            using var cmd = con.CreateCommand();
+            cmd.CommandText = "SELECT AccountType FROM Users WHERE Id=@id LIMIT 1;";
+            cmd.Parameters.AddWithValue("@id", userId);
+            var raw = cmd.ExecuteScalar()?.ToString();
+
+            return string.Equals(raw, "Business", StringComparison.OrdinalIgnoreCase)
+                ? AccountType.Business
+                : AccountType.Personal;
+        }
+
         // ===== Rejestracja / logowanie =====
 
         // Zachowanie wstecznej kompatybilnoœci – konto osobiste
@@ -51,7 +65,7 @@ namespace Finly.Services
             if (u is null || string.IsNullOrWhiteSpace(password)) return false;
 
             using var con = DatabaseService.GetConnection();
-            // Upewnij siê, ¿e schemat jest aktualny
+            // upewnij siê, ¿e schemat jest aktualny (SchemaService ustawia PRAGMA i tabele)
             SchemaService.Ensure(con);
 
             // Czy login wolny?
@@ -154,10 +168,20 @@ VALUES ($u, $ph, $type, $cname, $nip, $regon, $krs, $caddr);";
             return true;
         }
 
-        // ===== Pobieranie profilu =====
+        // ===== Podstawowe dane konta =====
 
         public static string GetUsername(int userId) => GetUserById(userId)?.Username ?? "";
         public static string GetEmail(int userId) => GetUserById(userId)?.Email ?? "";
+        public static void UpdateEmail(int userId, string email)
+        {
+            using var c = DatabaseService.GetConnection();
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE Users SET Email=@e WHERE Id=@id;";
+            cmd.Parameters.AddWithValue("@e", email ?? "");
+            cmd.Parameters.AddWithValue("@id", userId);
+            cmd.ExecuteNonQuery();
+        }
+
         public static DateTime GetCreatedAt(int userId)
             => GetUserById(userId)?.CreatedAt ?? DateTime.MinValue;
 
@@ -184,21 +208,9 @@ VALUES ($u, $ph, $type, $cname, $nip, $regon, $krs, $caddr);";
                     createdAt);
         }
 
-        // ===== Pomocnicze =====
+        // ===== Usuwanie konta =====
 
-        private static string? Normalize(string username)
-            => string.IsNullOrWhiteSpace(username) ? null : username.Trim();
-
-        private static string HashPassword(string password)
-        {
-            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password ?? ""));
-            return Convert.ToBase64String(bytes);
-        }
-
-        private static bool VerifyPassword(string password, string storedBase64Sha256)
-            => string.Equals(HashPassword(password), storedBase64Sha256, StringComparison.Ordinal);
-
-        /// Idempotentna definicja Users (w razie potrzeby)
+        /// Idempotentna definicja Users (zostawiamy – przydatne w testach).
         private static void EnsureUsersSchema(SqliteConnection con)
         {
             using var cmd = con.CreateCommand();
@@ -236,6 +248,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
                 Exec("DELETE FROM Categories      WHERE UserId=@id;");
                 Exec("DELETE FROM BankAccounts    WHERE UserId=@id;");
                 Exec("DELETE FROM BankConnections WHERE UserId=@id;");
+                Exec("DELETE FROM PersonalProfiles WHERE UserId=@id;");
+                Exec("DELETE FROM CompanyProfiles  WHERE UserId=@id;");
 
                 using (var del = con.CreateCommand())
                 {
@@ -257,56 +271,173 @@ CREATE UNIQUE INDEX IF NOT EXISTS UX_Users_Username_NC
             }
         }
 
-        // Profil – zgodnoœæ z nowymi kolumnami (NIP/CompanyNip)
+        // ===== Profil: odczyt/zapis z preferencj¹ nowych tabel (PersonalProfiles/CompanyProfiles) =====
+
         public static UserProfile GetProfile(int userId)
         {
             using var c = DatabaseService.GetConnection();
-            using var cmd = c.CreateCommand();
-            cmd.CommandText = @"
+
+            // 1) Osoba – PersonalProfiles (jeœli istnieje)
+            string? firstName = null, lastName = null, address = null;
+            string? birthYear = null, city = null, postalCode = null, houseNo = null;
+
+            try
+            {
+                using var p = c.CreateCommand();
+                p.CommandText = @"
+SELECT FirstName, LastName, Address, BirthDate, City, PostalCode, HouseNo
+FROM PersonalProfiles WHERE UserId=@id LIMIT 1;";
+                p.Parameters.AddWithValue("@id", userId);
+
+                using var pr = p.ExecuteReader();
+                if (pr.Read())
+                {
+                    firstName = pr.IsDBNull(0) ? null : pr.GetString(0);
+                    lastName = pr.IsDBNull(1) ? null : pr.GetString(1);
+                    address = pr.IsDBNull(2) ? null : pr.GetString(2);
+                    if (!pr.IsDBNull(3))
+                    {
+                        // wyci¹gnij sam rok z BirthDate (TEXT)
+                        var d = pr.GetString(3);
+                        if (DateTime.TryParse(d, out var bd)) birthYear = bd.Year.ToString();
+                    }
+                    city = pr.IsDBNull(4) ? null : pr.GetString(4);
+                    postalCode = pr.IsDBNull(5) ? null : pr.GetString(5);
+                    houseNo = pr.IsDBNull(6) ? null : pr.GetString(6);
+                }
+            }
+            catch { /* tabela mo¿e nie istnieæ – lecimy fallbackiem */ }
+
+            // 2) Firma – Users (z kompatybilnoœci¹ CompanyNip)
+            string? companyName = null, companyNip = null, companyAddress = null;
+            using (var u = c.CreateCommand())
+            {
+                u.CommandText = @"
 SELECT FirstName, LastName, Address,
        CompanyName,
        COALESCE(NIP, CompanyNip) as NipCompat,
-       CompanyAddress,
-       Email
+       CompanyAddress
 FROM Users WHERE Id=@id;";
-            cmd.Parameters.AddWithValue("@id", userId);
-            using var r = cmd.ExecuteReader();
-            if (!r.Read()) return new UserProfile();
+                u.Parameters.AddWithValue("@id", userId);
+                using var ur = u.ExecuteReader();
+                if (ur.Read())
+                {
+                    // Jeœli PersonalProfiles nie zwróci³o wartoœci – weŸ ze starej tabeli
+                    firstName ??= ur.IsDBNull(0) ? null : ur.GetString(0);
+                    lastName ??= ur.IsDBNull(1) ? null : ur.GetString(1);
+                    address ??= ur.IsDBNull(2) ? null : ur.GetString(2);
+
+                    companyName = ur.IsDBNull(3) ? null : ur.GetString(3);
+                    companyNip = ur.IsDBNull(4) ? null : ur.GetString(4);
+                    companyAddress = ur.IsDBNull(5) ? null : ur.GetString(5);
+                }
+            }
 
             return new UserProfile
             {
-                FirstName = r.IsDBNull(0) ? null : r.GetString(0),
-                LastName = r.IsDBNull(1) ? null : r.GetString(1),
-                Address = r.IsDBNull(2) ? null : r.GetString(2),
-                CompanyName = r.IsDBNull(3) ? null : r.GetString(3),
-                CompanyNip = r.IsDBNull(4) ? null : r.GetString(4), // u¿ywa COALESCE
-                CompanyAddress = r.IsDBNull(5) ? null : r.GetString(5),
-                // Email (6) jest dostêpny, jeœli bêdziesz chcia³a dodaæ do modelu
+                FirstName = firstName,
+                LastName = lastName,
+                Address = address,
+                BirthYear = birthYear,
+                City = city,
+                PostalCode = postalCode,
+                HouseNo = houseNo,
+
+                CompanyName = companyName,
+                CompanyNip = companyNip,
+                CompanyAddress = companyAddress
             };
         }
 
         public static void UpdateProfile(int userId, UserProfile p)
         {
             using var c = DatabaseService.GetConnection();
-            using var cmd = c.CreateCommand();
-            cmd.CommandText = @"
+
+            // 1) Zapis/merge do PersonalProfiles (tworzymy rekord, jeœli brak)
+            try
+            {
+                using (var up = c.CreateCommand())
+                {
+                    up.CommandText = @"
+INSERT INTO PersonalProfiles (UserId, FirstName, LastName, Address, City, PostalCode, HouseNo, CreatedAt)
+VALUES (@id, @fn, @ln, @addr, @city, @pc, @house, CURRENT_TIMESTAMP)
+ON CONFLICT(UserId) DO UPDATE SET
+    FirstName = @fn,
+    LastName  = @ln,
+    Address   = @addr,
+    City      = @city,
+    PostalCode= @pc,
+    HouseNo   = @house;";
+                    up.Parameters.AddWithValue("@id", userId);
+                    up.Parameters.AddWithValue("@fn", (object?)p.FirstName ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@ln", (object?)p.LastName ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@addr", (object?)p.Address ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@city", (object?)p.City ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@pc", (object?)p.PostalCode ?? DBNull.Value);
+                    up.Parameters.AddWithValue("@house", (object?)p.HouseNo ?? DBNull.Value);
+                    up.ExecuteNonQuery();
+                }
+
+                // Rok urodzenia przechowujemy jako rok z BirthDate (jeœli podany) – ustaw tylko, gdy to liczba.
+                if (int.TryParse(p.BirthYear, out var y) && y >= 1900 && y <= DateTime.Now.Year)
+                {
+                    using var upBirth = c.CreateCommand();
+                    upBirth.CommandText = @"
+UPDATE PersonalProfiles
+SET BirthDate = date(@iso,'start of year')   -- YYYY-01-01
+WHERE UserId=@id;";
+                    upBirth.Parameters.AddWithValue("@iso", $"{y}-01-01");
+                    upBirth.Parameters.AddWithValue("@id", userId);
+                    upBirth.ExecuteNonQuery();
+                }
+            }
+            catch
+            {
+                // Jeœli nie masz tabeli PersonalProfiles – zapisz minimum do Users
+                using var upu = c.CreateCommand();
+                upu.CommandText = @"
 UPDATE Users SET
-    FirstName      = @fn,
-    LastName       = @ln,
-    Address        = @addr,
+    FirstName = @fn,
+    LastName  = @ln,
+    Address   = @addr
+WHERE Id=@id;";
+                upu.Parameters.AddWithValue("@fn", (object?)p.FirstName ?? DBNull.Value);
+                upu.Parameters.AddWithValue("@ln", (object?)p.LastName ?? DBNull.Value);
+                upu.Parameters.AddWithValue("@addr", (object?)p.Address ?? DBNull.Value);
+                upu.Parameters.AddWithValue("@id", userId);
+                upu.ExecuteNonQuery();
+            }
+
+            // 2) Dane firmy zawsze w Users
+            using (var cmd = c.CreateCommand())
+            {
+                cmd.CommandText = @"
+UPDATE Users SET
     CompanyName    = @cname,
-    NIP            = @nip,           -- nowa kolumna
+    NIP            = @nip,
     CompanyAddress = @caddr
 WHERE Id=@id;";
-            cmd.Parameters.AddWithValue("@fn", (object?)p.FirstName ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@ln", (object?)p.LastName ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@addr", (object?)p.Address ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@cname", (object?)p.CompanyName ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@nip", (object?)p.CompanyNip ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@caddr", (object?)p.CompanyAddress ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@id", userId);
-            cmd.ExecuteNonQuery();
+                cmd.Parameters.AddWithValue("@cname", (object?)p.CompanyName ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@nip", (object?)p.CompanyNip ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@caddr", (object?)p.CompanyAddress ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@id", userId);
+                cmd.ExecuteNonQuery();
+            }
         }
+
+        // ===== Pomocnicze =====
+
+        private static string? Normalize(string username)
+            => string.IsNullOrWhiteSpace(username) ? null : username.Trim();
+
+        private static string HashPassword(string password)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password ?? ""));
+            return Convert.ToBase64String(bytes);
+        }
+
+        private static bool VerifyPassword(string password, string storedBase64Sha256)
+            => string.Equals(HashPassword(password), storedBase64Sha256, StringComparison.Ordinal);
     }
 }
 

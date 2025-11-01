@@ -72,7 +72,7 @@ namespace Finly.ViewModels
                     return;
                 }
 
-                // Sukces: pobierz Id i otwórz Dashboard
+                //  Sukces: pobierz Id i otwórz Dashboard
                 int userId = UserService.GetUserIdByUsername(user);
                 if (userId <= 0)
                 {
@@ -80,22 +80,30 @@ namespace Finly.ViewModels
                     return;
                 }
 
+                // Zapisz ID aktualnie zalogowanego u¿ytkownika
                 UserService.CurrentUserId = userId;
+
+                //  Utwórz schemat bazy (bez seedowania kategorii)
+                DatabaseService.EnsureCoreTables();
+
+                //  USUWAMY SEEDOWANIE – ¿adnych domyœlnych kategorii tutaj!
+                // U¿ytkownik bêdzie je mia³ dopiero po dodaniu wydatków
+
+                // Otwórz g³ówne okno aplikacji
                 var shell = new ShellWindow();
                 Application.Current.MainWindow = shell;
                 shell.Show();
 
-                // zamykamy okno logowania:
+                //  Zamknij okno logowania
                 Application.Current.Windows
                     .OfType<Finly.Views.AuthWindow>()
                     .FirstOrDefault()
                     ?.Close();
-
-
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Wyst¹pi³ b³¹d podczas logowania:\n{ex.Message}", "B³¹d", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Wyst¹pi³ b³¹d podczas logowania:\n{ex.Message}",
+                    "B³¹d", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

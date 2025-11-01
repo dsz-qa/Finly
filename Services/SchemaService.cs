@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Data.Sqlite;
 
 namespace Finly.Services
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS Users(
     LastName        TEXT NULL,
     Address         TEXT NULL,
     CompanyName     TEXT NULL,
-    CompanyNip      TEXT NULL, -- stara kolumna (zgodność)
+    CompanyNip      TEXT NULL,
     CompanyAddress  TEXT NULL,
     AccountType     TEXT NULL,
     NIP             TEXT NULL,
@@ -52,9 +52,14 @@ CREATE TABLE IF NOT EXISTS Users(
 );
 
 CREATE TABLE IF NOT EXISTS Categories(
-    Id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    Name   TEXT NOT NULL,
-    UserId INTEGER NULL
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NULL,
+    Name TEXT NOT NULL,
+    Icon TEXT NULL,
+    Color TEXT NULL,
+    Type TEXT CHECK(Type IN ('Expense','Income','Saving')),
+    IsDeleted INTEGER NOT NULL DEFAULT 0,
+    CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS Expenses(
@@ -94,7 +99,7 @@ CREATE TABLE IF NOT EXISTS BankAccounts(
                 // ---- migracje idempotentne ----
                 void AddColumnIfMissing(string table, string column, string sqlType, string defaultClause = "")
                 {
-                    if (!ColumnExists(con, table, column)) // <- przeciążenie bez tx
+                    if (!ColumnExists(con, table, column))
                     {
                         using var alter = con.CreateCommand();
                         alter.Transaction = tx;
@@ -119,10 +124,10 @@ CREATE TABLE IF NOT EXISTS BankAccounts(
                     Cmd("UPDATE Users SET NIP = CompanyNip WHERE NIP IS NULL AND CompanyNip IS NOT NULL;").ExecuteNonQuery();
                 }
 
-                if (!ColTx("Users", "Email")) Cmd("ALTER TABLE Users ADD COLUMN Email     TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "Email")) Cmd("ALTER TABLE Users ADD COLUMN Email TEXT NULL;").ExecuteNonQuery();
                 if (!ColTx("Users", "FirstName")) Cmd("ALTER TABLE Users ADD COLUMN FirstName TEXT NULL;").ExecuteNonQuery();
-                if (!ColTx("Users", "LastName")) Cmd("ALTER TABLE Users ADD COLUMN LastName  TEXT NULL;").ExecuteNonQuery();
-                if (!ColTx("Users", "Address")) Cmd("ALTER TABLE Users ADD COLUMN Address   TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "LastName")) Cmd("ALTER TABLE Users ADD COLUMN LastName TEXT NULL;").ExecuteNonQuery();
+                if (!ColTx("Users", "Address")) Cmd("ALTER TABLE Users ADD COLUMN Address TEXT NULL;").ExecuteNonQuery();
                 if (!ColTx("Users", "CreatedAt")) Cmd("ALTER TABLE Users ADD COLUMN CreatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP;").ExecuteNonQuery();
 
                 if (!ColTx("Categories", "UserId"))
@@ -139,24 +144,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS IX_Categories_User_Name
                     idx.ExecuteNonQuery();
                 }
 
-                using (var check = Cmd("SELECT COUNT(1) FROM Categories;"))
-                {
-                    var cnt = Convert.ToInt32(check.ExecuteScalar());
-                    if (cnt == 0)
-                    {
-                        using var seed = Cmd(@"
-INSERT INTO Categories (Name) VALUES ('Jedzenie');
-INSERT INTO Categories (Name) VALUES ('Transport');
-INSERT INTO Categories (Name) VALUES ('Rachunki');");
-                        seed.ExecuteNonQuery();
-                    }
-                }
-
+                // 🟢 Nie dodajemy domyślnych kategorii — każdy użytkownik tworzy je sam
                 tx.Commit();
             }
         }
 
-        // --- PRAGMA z transakcją (istniejące) ---
+        // --- PRAGMA z transakcją ---
         private static bool ColumnExists(SqliteConnection con, SqliteTransaction tx, string table, string column)
         {
             using var cmd = con.CreateCommand();
@@ -172,7 +165,7 @@ INSERT INTO Categories (Name) VALUES ('Rachunki');");
             return false;
         }
 
-        // --- NOWE przeciążenie bez transakcji (dla prostych sprawdzeń) ---
+        // --- przeciążenie bez transakcji ---
         private static bool ColumnExists(SqliteConnection con, string table, string column)
         {
             using var cmd = con.CreateCommand();
@@ -188,11 +181,3 @@ INSERT INTO Categories (Name) VALUES ('Rachunki');");
         }
     }
 }
-
-
-
-
-
-
-
-

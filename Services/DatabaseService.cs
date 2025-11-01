@@ -8,47 +8,89 @@ namespace Finly.Services
 {
     public static class DatabaseService
     {
+        // ÅšcieÅ¼ka do lokalnej bazy danych (z gÅ‚Ã³wnej gaÅ‚Ä™zi)
         public static string DbPath { get; } =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "finly.db");
 
-        // Tylko wspierane opcje; PRAGMA ustawimy w SchemaService.Ensure
+        // PoÅ‚Ä…czenie z bazÄ… danych
         public static string ConnectionString { get; } =
             $"Data Source={DbPath};Mode=ReadWriteCreate;Cache=Shared;Pooling=True";
 
         private static readonly object _initLock = new();
         private static bool _isInitialized = false;
 
-        /// Zwraca OTWARTE po³¹czenie.
-        public static SqliteConnection GetConnection()
+        /// <summary>
+        /// Tworzy wymagane tabele (bez seedÃ³w) â€“ wywoÅ‚ywana po zalogowaniu
+        /// </summary>
+        public static void EnsureCoreTables()
         {
-            var con = new SqliteConnection(ConnectionString);
-            con.Open();
+            using var conn = GetOpenConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+PRAGMA foreign_keys = ON;
 
-            // Jednorazowa inicjalizacja schematu/PRAGMA na pierwszym po³¹czeniu
+CREATE TABLE IF NOT EXISTS Users(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Username TEXT NOT NULL UNIQUE,
+    PasswordHash TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS Categories(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    Name TEXT NOT NULL,
+    Icon TEXT NOT NULL DEFAULT ' ',
+    Color TEXT NOT NULL DEFAULT '#607D8B',
+    Type TEXT NOT NULL CHECK(Type IN ('Expense','Income','Saving')) DEFAULT 'Expense',
+    IsDeleted INTEGER NOT NULL DEFAULT 0,
+    CreatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(UserId, Name) WHERE IsDeleted = 0,
+    FOREIGN KEY(UserId) REFERENCES Users(Id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS Expenses(
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserId INTEGER NOT NULL,
+    CategoryId INTEGER NOT NULL,
+    Amount REAL NOT NULL,
+    Description TEXT,
+    Date TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(UserId) REFERENCES Users(Id) ON DELETE CASCADE,
+    FOREIGN KEY(CategoryId) REFERENCES Categories(Id) ON DELETE CASCADE
+);
+";
+            cmd.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// Zwraca otwarte poÅ‚Ä…czenie z bazÄ… danych.
+        /// </summary>
+        public static SqliteConnection GetOpenConnection()
+        {
+            var conn = new SqliteConnection(ConnectionString);
+            conn.Open();
+
             if (!_isInitialized)
             {
                 lock (_initLock)
                 {
                     if (!_isInitialized)
                     {
-                        SchemaService.Ensure(con);
+                        SchemaService.Ensure(conn);
                         _isInitialized = true;
                     }
                 }
             }
 
-            return con;
+            return conn;
         }
-
-        // Alias dla istniej¹cego kodu w pliku
-        private static SqliteConnection OpenAndEnsureSchema() => GetConnection();
 
         private static string ToIsoDate(DateTime dt) => dt.ToString("yyyy-MM-dd");
 
         // ---------- EXPENSES ----------
         public static void AddExpense(Expense expense)
         {
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = @"
 INSERT INTO Expenses (Amount, CategoryId, Date, Description, UserId)
@@ -63,7 +105,7 @@ VALUES (@amount, @categoryId, @date, @description, @userId);";
 
         public static void UpdateExpense(Expense expense)
         {
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = @"
 UPDATE Expenses
@@ -79,7 +121,7 @@ WHERE Id=@id;";
 
         public static void DeleteExpense(int expenseId)
         {
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = "DELETE FROM Expenses WHERE Id=@id;";
             cmd.Parameters.AddWithValue("@id", expenseId);
@@ -89,7 +131,7 @@ WHERE Id=@id;";
         public static List<Expense> GetExpensesByUser(int userId)
         {
             var list = new List<Expense>();
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = @"
 SELECT Id, Amount, Date, Description, CategoryId, UserId
@@ -114,92 +156,10 @@ ORDER BY Date DESC, Id DESC;";
             return list;
         }
 
-        public static Expense? GetExpenseById(int expenseId)
-        {
-            using var connection = OpenAndEnsureSchema();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"
-SELECT Id, Amount, Date, Description, CategoryId, UserId
-FROM Expenses
-WHERE Id=@id;";
-            cmd.Parameters.AddWithValue("@id", expenseId);
-
-            using var r = cmd.ExecuteReader();
-            if (!r.Read()) return null;
-
-            return new Expense
-            {
-                Id = r.GetInt32(0),
-                Amount = r.GetDouble(1),
-                Date = DateTime.Parse(r.GetString(2)),
-                Description = r.IsDBNull(3) ? "" : r.GetString(3),
-                CategoryId = r.IsDBNull(4) ? 0 : r.GetInt32(4),
-                UserId = r.GetInt32(5)
-            };
-        }
-
-        public static List<Expense> GetExpensesByUserId(int userId)
-        {
-            var list = new List<Expense>();
-            using var connection = OpenAndEnsureSchema();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"
-SELECT e.Id, e.Amount, e.Date, e.Description, e.CategoryId, c.Name
-FROM Expenses e
-LEFT JOIN Categories c ON e.CategoryId = c.Id
-WHERE e.UserId=@userId
-ORDER BY e.Date DESC, e.Id DESC;";
-            cmd.Parameters.AddWithValue("@userId", userId);
-
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                list.Add(new Expense
-                {
-                    Id = r.GetInt32(0),
-                    Amount = r.GetDouble(1),
-                    Date = DateTime.Parse(r.GetString(2)),
-                    Description = r.IsDBNull(3) ? "" : r.GetString(3),
-                    CategoryId = r.IsDBNull(4) ? 0 : r.GetInt32(4),
-                    CategoryName = r.IsDBNull(5) ? "Brak kategorii" : r.GetString(5),
-                    UserId = userId
-                });
-            }
-            return list;
-        }
-
-        public static List<ExpenseDisplayModel> GetExpensesWithCategory()
-        {
-            var list = new List<ExpenseDisplayModel>();
-            using var connection = OpenAndEnsureSchema();
-            using var cmd = connection.CreateCommand();
-            cmd.CommandText = @"
-SELECT e.Id, e.Amount, e.Date, e.Description, e.UserId, c.Name as CategoryName
-FROM Expenses e
-LEFT JOIN Categories c ON e.CategoryId = c.Id
-ORDER BY e.Date DESC, e.Id DESC;";
-
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                list.Add(new ExpenseDisplayModel
-                {
-                    Id = r.GetInt32(0),
-                    Amount = r.GetDouble(1),
-                    Date = DateTime.Parse(r.GetString(2)),
-                    Description = r.IsDBNull(3) ? "" : r.GetString(3),
-                    UserId = r.GetInt32(4),
-                    CategoryName = r.IsDBNull(5) ? "Brak kategorii" : r.GetString(5),
-                    Category = r.IsDBNull(5) ? "Brak kategorii" : r.GetString(5)
-                });
-            }
-            return list;
-        }
-
         public static List<ExpenseDisplayModel> GetExpensesWithCategoryNameByUser(int userId)
         {
             var list = new List<ExpenseDisplayModel>();
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = @"
 SELECT e.Id, e.Amount, e.Date, e.Description, c.Name as CategoryName
@@ -229,7 +189,7 @@ ORDER BY e.Date DESC, e.Id DESC;";
         // ---------- CATEGORIES ----------
         public static string? GetCategoryNameById(int categoryId)
         {
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = @"SELECT Name FROM Categories WHERE Id=@id LIMIT 1;";
             cmd.Parameters.AddWithValue("@id", categoryId);
@@ -240,9 +200,8 @@ ORDER BY e.Date DESC, e.Id DESC;";
         public static int? TryGetCategoryIdByName(string categoryName, int userId)
         {
             if (string.IsNullOrWhiteSpace(categoryName)) return null;
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
 
-            // 1) kategoria u¿ytkownika
             using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = @"
@@ -256,7 +215,6 @@ LIMIT 1;";
                     return Convert.ToInt32(r);
             }
 
-            // 2) globalna
             using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = @"
@@ -277,9 +235,8 @@ LIMIT 1;";
             if (string.IsNullOrWhiteSpace(categoryName))
                 categoryName = "Inne";
 
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
 
-            // 1) u¿ytkownika
             using (var checkUser = connection.CreateCommand())
             {
                 checkUser.CommandText = @"
@@ -293,7 +250,6 @@ LIMIT 1;";
                     return Convert.ToInt32(res);
             }
 
-            // 2) globalna
             using (var checkGlobal = connection.CreateCommand())
             {
                 checkGlobal.CommandText = @"
@@ -306,7 +262,6 @@ LIMIT 1;";
                     return Convert.ToInt32(res);
             }
 
-            // 3) utwórz u¿ytkownikowi
             using (var insert = connection.CreateCommand())
             {
                 insert.CommandText = @"
@@ -328,7 +283,7 @@ VALUES (@name, @userId);";
         public static List<string> GetCategoriesByUser(int userId)
         {
             var list = new List<string>();
-            using var connection = OpenAndEnsureSchema();
+            using var connection = GetOpenConnection();
             using var cmd = connection.CreateCommand();
             cmd.CommandText = @"
 SELECT DISTINCT Name
@@ -345,5 +300,3 @@ ORDER BY Name;";
         }
     }
 }
-
-

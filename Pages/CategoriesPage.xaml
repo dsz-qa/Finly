@@ -1,8 +1,22 @@
-﻿<UserControl x:Class="Finly.Pages.CategoriesPage"
+﻿<UserControl x:Class="Finly.Views.CategoriesPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid>
-        <TextBlock Text="Kategorie (wkrótce)" Margin="16"/>
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+
+    <Grid Margin="16">
+        <DataGrid x:Name="CategoryGrid"
+              AutoGenerateColumns="False"
+              CanUserAddRows="False"
+              IsReadOnly="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Nazwa kategorii" Binding="{Binding Name}" Width="*" />
+                <DataGridTextColumn Header="Suma wydatków"
+                    Binding="{Binding Total, StringFormat={}{0} zł}"
+                    Width="200" />
+            </DataGrid.Columns>
+        </DataGrid>
     </Grid>
 </UserControl>
-
